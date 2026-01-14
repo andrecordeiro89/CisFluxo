@@ -2,6 +2,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { CircuitStep } from '@/types/patient-flow';
 import { useEffect } from 'react';
+import { useSelectedDate } from '@/contexts/DateContext';
 
 interface QueueStats {
   step: CircuitStep;
@@ -12,9 +13,10 @@ interface QueueStats {
 
 export function useQueueStats() {
   const queryClient = useQueryClient();
+  const { startOfSelectedDay, endOfSelectedDay } = useSelectedDate();
 
   const { data: stats = [], isLoading } = useQuery({
-    queryKey: ['queue-stats'],
+    queryKey: ['queue-stats', startOfSelectedDay.toISOString()],
     queryFn: async () => {
       const steps: CircuitStep[] = [
         'triagem_medica',
@@ -29,19 +31,25 @@ export function useQueueStats() {
           .from('patient_steps')
           .select('id', { count: 'exact' })
           .eq('step', step)
-          .eq('status', 'pending');
+          .eq('status', 'pending')
+          .gte('created_at', startOfSelectedDay.toISOString())
+          .lte('created_at', endOfSelectedDay.toISOString());
 
         const { data: inProgress } = await supabase
           .from('patient_steps')
           .select('id', { count: 'exact' })
           .eq('step', step)
-          .in('status', ['called', 'in_progress']);
+          .in('status', ['called', 'in_progress'])
+          .gte('created_at', startOfSelectedDay.toISOString())
+          .lte('created_at', endOfSelectedDay.toISOString());
 
         const { data: completed } = await supabase
           .from('patient_steps')
           .select('id', { count: 'exact' })
           .eq('step', step)
-          .eq('status', 'completed');
+          .eq('status', 'completed')
+          .gte('created_at', startOfSelectedDay.toISOString())
+          .lte('created_at', endOfSelectedDay.toISOString());
 
         return {
           step,
