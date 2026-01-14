@@ -1,4 +1,5 @@
 import { useTVCalls } from '@/hooks/useTVCalls';
+import { useTVSpeech } from '@/hooks/useTVSpeech';
 import { STEP_LABELS, CircuitStep } from '@/types/patient-flow';
 import { Volume2, ArrowRight } from 'lucide-react';
 
@@ -15,6 +16,9 @@ export function TVDisplay() {
 
   const latestCall = calls[0];
   const previousCalls = calls.slice(1, 4);
+
+  // Use text-to-speech for announcements
+  useTVSpeech(latestCall);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-background to-accent/20 flex flex-col">

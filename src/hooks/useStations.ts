@@ -263,10 +263,44 @@ export function useStationActions(station: Station) {
     },
   });
 
+  const addCardioStep = useMutation({
+    mutationFn: async (patientId: string) => {
+      // Check if step already exists
+      const { data: existing } = await supabase
+        .from('patient_steps')
+        .select('id')
+        .eq('patient_id', patientId)
+        .eq('step', 'cardiologista')
+        .maybeSingle();
+
+      if (existing) {
+        throw new Error('Etapa de cardiologista já adicionada');
+      }
+
+      const { error } = await supabase.from('patient_steps').insert({
+        patient_id: patientId,
+        step: 'cardiologista',
+      });
+
+      if (error) throw error;
+
+      // Update patient flag
+      await supabase
+        .from('patients')
+        .update({ needs_cardio: true })
+        .eq('id', patientId);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['patient-steps'] });
+      queryClient.invalidateQueries({ queryKey: ['patients'] });
+    },
+  });
+
   return {
     callNextPatient,
     startService,
     finishService,
     addImageExam,
+    addCardioStep,
   };
 }

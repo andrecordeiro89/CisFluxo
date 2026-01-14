@@ -5,7 +5,7 @@ import { usePatients, usePatientSteps } from '@/hooks/usePatients';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Phone, Play, CheckCircle, ImageIcon, User, Clock, Loader2, AlertTriangle } from 'lucide-react';
+import { Phone, Play, CheckCircle, ImageIcon, User, Clock, Loader2, AlertTriangle, Heart } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface StationControlCardProps {
@@ -13,7 +13,7 @@ interface StationControlCardProps {
 }
 
 export function StationControlCard({ station }: StationControlCardProps) {
-  const { callNextPatient, startService, finishService, addImageExam } = useStationActions(station);
+  const { callNextPatient, startService, finishService, addImageExam, addCardioStep } = useStationActions(station);
   const { patients } = usePatients();
   const { steps } = usePatientSteps();
   const [isLoading, setIsLoading] = useState<string | null>(null);
@@ -74,6 +74,19 @@ export function StationControlCard({ station }: StationControlCardProps) {
       toast.success('Exame de imagem adicionado!');
     } catch (error: any) {
       toast.error(error.message || 'Erro ao adicionar exame');
+    } finally {
+      setIsLoading(null);
+    }
+  };
+
+  const handleAddCardio = async () => {
+    if (!currentPatient) return;
+    setIsLoading('cardio');
+    try {
+      await addCardioStep.mutateAsync(currentPatient.id);
+      toast.success('Cardiologista adicionado!');
+    } catch (error: any) {
+      toast.error(error.message || 'Erro ao adicionar cardiologista');
     } finally {
       setIsLoading(null);
     }
@@ -182,20 +195,39 @@ export function StationControlCard({ station }: StationControlCardProps) {
                 Finalizar Atendimento
               </Button>
 
-              {!currentPatient.needs_image_exam && (
-                <Button
-                  variant="outline"
-                  className="w-full h-11"
-                  onClick={handleAddImageExam}
-                  disabled={isLoading === 'image'}
-                >
-                  {isLoading === 'image' ? (
-                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  ) : (
-                    <ImageIcon className="h-4 w-4 mr-2" />
+              {station.step === 'triagem_medica' && (
+                <div className="flex gap-2">
+                  {!currentPatient.needs_cardio && (
+                    <Button
+                      variant="outline"
+                      className="flex-1 h-11"
+                      onClick={handleAddCardio}
+                      disabled={isLoading === 'cardio'}
+                    >
+                      {isLoading === 'cardio' ? (
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      ) : (
+                        <Heart className="h-4 w-4 mr-2" />
+                      )}
+                      + Cardio
+                    </Button>
                   )}
-                  Adicionar Exame de Imagem
-                </Button>
+                  {!currentPatient.needs_image_exam && (
+                    <Button
+                      variant="outline"
+                      className="flex-1 h-11"
+                      onClick={handleAddImageExam}
+                      disabled={isLoading === 'image'}
+                    >
+                      {isLoading === 'image' ? (
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      ) : (
+                        <ImageIcon className="h-4 w-4 mr-2" />
+                      )}
+                      + Imagem
+                    </Button>
+                  )}
+                </div>
               )}
             </>
           )}
