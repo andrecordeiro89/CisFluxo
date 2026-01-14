@@ -5,7 +5,7 @@ import { usePatients, usePatientSteps } from '@/hooks/usePatients';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Phone, Play, CheckCircle, ImageIcon, User, Clock, Loader2 } from 'lucide-react';
+import { Phone, Play, CheckCircle, ImageIcon, User, Clock, Loader2, AlertTriangle } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface StationControlCardProps {
@@ -23,9 +23,12 @@ export function StationControlCard({ station }: StationControlCardProps) {
     ? steps.find((s) => s.patient_id === currentPatient.id && s.step === station.step)
     : null;
 
-  const pendingCount = steps.filter(
-    (s) => s.step === station.step && s.status === 'pending'
-  ).length;
+  // Count pending patients excluding those being served
+  const pendingCount = steps.filter((s) => {
+    if (s.step !== station.step || s.status !== 'pending') return false;
+    const patient = patients.find((p) => p.id === s.patient_id);
+    return patient && !patient.is_being_served;
+  }).length;
 
   const handleCall = async () => {
     setIsLoading('call');
@@ -98,13 +101,22 @@ export function StationControlCard({ station }: StationControlCardProps) {
       <div className="p-5">
         {/* Current patient info */}
         {currentPatient ? (
-          <div className="mb-5 p-4 rounded-lg bg-accent/50 border">
+          <div className={`mb-5 p-4 rounded-lg border ${currentPatient.is_priority ? 'bg-amber-500/10 border-amber-500/50' : 'bg-accent/50'}`}>
             <div className="flex items-center gap-3 mb-2">
-              <div className="p-2 rounded-full bg-primary/10">
-                <User className="h-5 w-5 text-primary" />
+              <div className={`p-2 rounded-full ${currentPatient.is_priority ? 'bg-amber-500/20' : 'bg-primary/10'}`}>
+                {currentPatient.is_priority ? (
+                  <AlertTriangle className="h-5 w-5 text-amber-500" />
+                ) : (
+                  <User className="h-5 w-5 text-primary" />
+                )}
               </div>
-              <div>
-                <p className="font-semibold text-lg">{currentPatient.name}</p>
+              <div className="flex-1">
+                <div className="flex items-center gap-2">
+                  <p className="font-semibold text-lg">{currentPatient.name}</p>
+                  {currentPatient.is_priority && (
+                    <Badge className="bg-amber-500 text-white text-xs">PRIORITÁRIO</Badge>
+                  )}
+                </div>
                 {currentPatient.registration_number && (
                   <p className="text-sm text-muted-foreground">#{currentPatient.registration_number}</p>
                 )}

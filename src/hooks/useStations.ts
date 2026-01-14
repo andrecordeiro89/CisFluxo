@@ -46,23 +46,59 @@ export function useStations(step?: CircuitStep) {
 export function useStationActions(station: Station) {
   const queryClient = useQueryClient();
 
+  // ECG allows 2 simultaneous patients, other stations only 1
+  const maxSimultaneousPatients = station.step === 'exames_lab_ecg' ? 2 : 1;
+
   const callNextPatient = useMutation({
     mutationFn: async () => {
-      // Get next pending patient for this step
+      // Check how many patients are currently being served at this station
+      const { data: currentlyServing, error: servingError } = await supabase
+        .from('patient_steps')
+        .select('id')
+        .eq('step', station.step)
+        .in('status', ['called', 'in_progress'])
+        .eq('station_number', station.station_number);
+
+      if (servingError) throw servingError;
+
+      const currentCount = currentlyServing?.length || 0;
+      if (currentCount >= maxSimultaneousPatients) {
+        throw new Error(`Esta estação já está com ${currentCount} paciente(s) em atendimento`);
+      }
+
+      // Get next pending patient for this step (excluding those being served elsewhere)
+      // Prioritized by is_priority DESC, then created_at ASC
       const { data: nextStep, error: stepError } = await supabase
         .from('patient_steps')
         .select('*, patients!inner(*)')
         .eq('step', station.step)
         .eq('status', 'pending')
         .eq('patients.is_completed', false)
+        .eq('patients.is_being_served', false)
         .order('created_at', { ascending: true })
-        .limit(1)
-        .maybeSingle();
+        .limit(10);  // Get more to sort by priority
 
       if (stepError) throw stepError;
-      if (!nextStep) throw new Error('Não há pacientes aguardando para esta etapa');
+      if (!nextStep || nextStep.length === 0) throw new Error('Não há pacientes aguardando para esta etapa');
 
-      const patient = (nextStep as any).patients as Patient;
+      // Sort by priority (priority first) then by created_at
+      const sortedSteps = nextStep.sort((a: any, b: any) => {
+        const aPriority = a.patients.is_priority ? 1 : 0;
+        const bPriority = b.patients.is_priority ? 1 : 0;
+        if (bPriority !== aPriority) return bPriority - aPriority;
+        return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+      });
+
+      const selectedStep = sortedSteps[0];
+      const patient = (selectedStep as any).patients as Patient;
+
+      // Mark patient as being served
+      const { error: markServingError } = await supabase
+        .from('patients')
+        .update({ is_being_served: true })
+        .eq('id', patient.id);
+
+      if (markServingError) throw markServingError;
 
       // Update step status to called
       const { error: updateError } = await supabase
@@ -72,7 +108,7 @@ export function useStationActions(station: Station) {
           called_at: new Date().toISOString(),
           station_number: station.station_number,
         })
-        .eq('id', nextStep.id);
+        .eq('id', selectedStep.id);
 
       if (updateError) throw updateError;
 
@@ -95,13 +131,14 @@ export function useStationActions(station: Station) {
 
       if (tvError) throw tvError;
 
-      return { patient, step: nextStep };
+      return { patient, step: selectedStep };
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['stations'] });
       queryClient.invalidateQueries({ queryKey: ['patient-steps'] });
       queryClient.invalidateQueries({ queryKey: ['tv-calls'] });
       queryClient.invalidateQueries({ queryKey: ['queue-stats'] });
+      queryClient.invalidateQueries({ queryKey: ['patients'] });
     },
   });
 
@@ -150,6 +187,14 @@ export function useStationActions(station: Station) {
         .eq('step', station.step);
 
       if (stepError) throw stepError;
+
+      // Mark patient as no longer being served
+      const { error: servingError } = await supabase
+        .from('patients')
+        .update({ is_being_served: false })
+        .eq('id', station.current_patient_id);
+
+      if (servingError) throw servingError;
 
       // Check if all steps are completed
       const { data: pendingSteps } = await supabase

@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { UserPlus, Heart, Image as ImageIcon } from 'lucide-react';
+import { UserPlus, Heart, Image as ImageIcon, AlertTriangle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -15,6 +15,7 @@ const patientSchema = z.object({
   registration_number: z.string().optional(),
   needs_cardio: z.boolean().default(false),
   needs_image_exam: z.boolean().default(false),
+  is_priority: z.boolean().default(false),
 });
 
 type PatientFormData = z.infer<typeof patientSchema>;
@@ -30,6 +31,7 @@ export function PatientRegistrationForm() {
       registration_number: '',
       needs_cardio: false,
       needs_image_exam: false,
+      is_priority: false,
     },
   });
 
@@ -41,6 +43,7 @@ export function PatientRegistrationForm() {
         registration_number: data.registration_number,
         needs_cardio: data.needs_cardio ?? false,
         needs_image_exam: data.needs_image_exam ?? false,
+        is_priority: data.is_priority ?? false,
       });
       toast.success(`Paciente ${data.name} cadastrado com sucesso!`);
       form.reset();
@@ -137,6 +140,28 @@ export function PatientRegistrationForm() {
                     <ImageIcon className="h-5 w-5 text-step-imagem" />
                     <FormLabel className="cursor-pointer font-medium m-0">
                       Necessita Exame de Imagem
+                    </FormLabel>
+                  </div>
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="is_priority"
+              render={({ field }) => (
+                <FormItem className="flex items-center gap-3 p-4 rounded-lg border-2 border-amber-500/50 bg-amber-500/10 hover:bg-amber-500/20 transition-colors">
+                  <FormControl>
+                    <Checkbox
+                      checked={field.value}
+                      onCheckedChange={field.onChange}
+                      className="data-[state=checked]:bg-amber-500 data-[state=checked]:border-amber-500"
+                    />
+                  </FormControl>
+                  <div className="flex items-center gap-2 flex-1">
+                    <AlertTriangle className="h-5 w-5 text-amber-500" />
+                    <FormLabel className="cursor-pointer font-medium m-0 text-amber-700 dark:text-amber-400">
+                      Atendimento Prioritário
                     </FormLabel>
                   </div>
                 </FormItem>

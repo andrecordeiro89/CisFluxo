@@ -63,7 +63,9 @@ export type Database = {
           completed_at: string | null
           created_at: string
           id: string
+          is_being_served: boolean
           is_completed: boolean
+          is_priority: boolean
           name: string
           needs_cardio: boolean
           needs_image_exam: boolean
@@ -73,7 +75,9 @@ export type Database = {
           completed_at?: string | null
           created_at?: string
           id?: string
+          is_being_served?: boolean
           is_completed?: boolean
+          is_priority?: boolean
           name: string
           needs_cardio?: boolean
           needs_image_exam?: boolean
@@ -83,7 +87,9 @@ export type Database = {
           completed_at?: string | null
           created_at?: string
           id?: string
+          is_being_served?: boolean
           is_completed?: boolean
+          is_priority?: boolean
           name?: string
           needs_cardio?: boolean
           needs_image_exam?: boolean
