@@ -11,6 +11,8 @@ export interface Patient {
   created_at: string;
   completed_at: string | null;
   is_completed: boolean;
+  is_priority: boolean;
+  is_being_served: boolean;
 }
 
 export interface PatientStep {

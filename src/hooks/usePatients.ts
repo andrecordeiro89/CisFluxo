@@ -44,6 +44,7 @@ export function usePatients() {
       registration_number?: string;
       needs_cardio: boolean;
       needs_image_exam: boolean;
+      is_priority: boolean;
     }) => {
       // Create patient
       const { data: patient, error: patientError } = await supabase
@@ -53,6 +54,7 @@ export function usePatients() {
           registration_number: data.registration_number || null,
           needs_cardio: data.needs_cardio,
           needs_image_exam: data.needs_image_exam,
+          is_priority: data.is_priority,
         })
         .select()
         .single();
