@@ -2,18 +2,28 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Patient, PatientStep, CircuitStep } from '@/types/patient-flow';
 import { useEffect } from 'react';
+import { useSelectedDate } from '@/contexts/DateContext';
 
 export function usePatients() {
   const queryClient = useQueryClient();
+  const { startOfSelectedDay, endOfSelectedDay, isToday } = useSelectedDate();
 
   const { data: patients = [], isLoading } = useQuery({
-    queryKey: ['patients'],
+    queryKey: ['patients', startOfSelectedDay.toISOString()],
     queryFn: async () => {
-      const { data, error } = await supabase
+      let query = supabase
         .from('patients')
         .select('*')
-        .eq('is_completed', false)
+        .gte('created_at', startOfSelectedDay.toISOString())
+        .lte('created_at', endOfSelectedDay.toISOString())
         .order('created_at', { ascending: true });
+      
+      // Only filter incomplete for today
+      if (isToday) {
+        query = query.eq('is_completed', false);
+      }
+      
+      const { data, error } = await query;
       
       if (error) throw error;
       return data as Patient[];
@@ -94,19 +104,26 @@ export function usePatients() {
     patients,
     isLoading,
     registerPatient,
+    isToday,
   };
 }
 
 export function usePatientSteps(patientId?: string) {
   const queryClient = useQueryClient();
+  const { startOfSelectedDay, endOfSelectedDay } = useSelectedDate();
 
   const { data: steps = [], isLoading } = useQuery({
-    queryKey: ['patient-steps', patientId],
+    queryKey: ['patient-steps', patientId, startOfSelectedDay.toISOString()],
     queryFn: async () => {
       let query = supabase.from('patient_steps').select('*');
       
       if (patientId) {
         query = query.eq('patient_id', patientId);
+      } else {
+        // Filter by date when getting all steps
+        query = query
+          .gte('created_at', startOfSelectedDay.toISOString())
+          .lte('created_at', endOfSelectedDay.toISOString());
       }
 
       const { data, error } = await query.order('created_at', { ascending: true });
