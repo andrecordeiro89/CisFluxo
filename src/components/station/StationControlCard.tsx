@@ -1,27 +1,87 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Station, Patient, CircuitStep, STEP_LABELS } from '@/types/patient-flow';
 import { useStationActions } from '@/hooks/useStations';
 import { usePatients, usePatientSteps } from '@/hooks/usePatients';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Phone, Play, CheckCircle, ImageIcon, User, Clock, Loader2, AlertTriangle, Heart } from 'lucide-react';
+import { Phone, Play, CheckCircle, ImageIcon, User, Clock, Loader2, AlertTriangle, Heart, XCircle } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface StationControlCardProps {
   station: Station;
 }
 
+const AUTO_CANCEL_TIMEOUT_MS = 3 * 60 * 1000; // 3 minutes
+
 export function StationControlCard({ station }: StationControlCardProps) {
-  const { callNextPatient, startService, finishService, addImageExam, addCardioStep } = useStationActions(station);
+  const { callNextPatient, startService, finishService, cancelCall, addImageExam, addCardioStep } = useStationActions(station);
   const { patients } = usePatients();
   const { steps } = usePatientSteps();
   const [isLoading, setIsLoading] = useState<string | null>(null);
+  const [timeRemaining, setTimeRemaining] = useState<number | null>(null);
+  const autoCancelTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const countdownRef = useRef<NodeJS.Timeout | null>(null);
 
   const currentPatient = patients.find((p) => p.id === station.current_patient_id);
   const currentStep = currentPatient
     ? steps.find((s) => s.patient_id === currentPatient.id && s.step === station.step)
     : null;
+
+  const isCalled = currentStep?.status === 'called';
+
+  // Auto-cancel timer for called patients
+  useEffect(() => {
+    if (isCalled && currentStep?.called_at) {
+      const calledTime = new Date(currentStep.called_at).getTime();
+      const now = Date.now();
+      const elapsed = now - calledTime;
+      const remaining = AUTO_CANCEL_TIMEOUT_MS - elapsed;
+
+      if (remaining <= 0) {
+        // Already expired, cancel immediately
+        handleCancel();
+      } else {
+        // Set remaining time
+        setTimeRemaining(Math.ceil(remaining / 1000));
+
+        // Set auto-cancel timer
+        autoCancelTimerRef.current = setTimeout(() => {
+          handleAutoCancel();
+        }, remaining);
+
+        // Start countdown
+        countdownRef.current = setInterval(() => {
+          setTimeRemaining((prev) => {
+            if (prev === null || prev <= 1) {
+              return null;
+            }
+            return prev - 1;
+          });
+        }, 1000);
+      }
+    } else {
+      setTimeRemaining(null);
+    }
+
+    return () => {
+      if (autoCancelTimerRef.current) {
+        clearTimeout(autoCancelTimerRef.current);
+      }
+      if (countdownRef.current) {
+        clearInterval(countdownRef.current);
+      }
+    };
+  }, [isCalled, currentStep?.called_at]);
+
+  const handleAutoCancel = async () => {
+    try {
+      await cancelCall.mutateAsync();
+      toast.info('Chamada cancelada automaticamente (tempo expirado)');
+    } catch (error: any) {
+      console.error('Auto-cancel failed:', error);
+    }
+  };
 
   // Count pending patients excluding those being served
   const pendingCount = steps.filter((s) => {
@@ -45,6 +105,10 @@ export function StationControlCard({ station }: StationControlCardProps) {
   const handleStart = async () => {
     setIsLoading('start');
     try {
+      // Clear timers
+      if (autoCancelTimerRef.current) clearTimeout(autoCancelTimerRef.current);
+      if (countdownRef.current) clearInterval(countdownRef.current);
+      
       await startService.mutateAsync();
       toast.success('Atendimento iniciado!');
     } catch (error: any) {
@@ -61,6 +125,22 @@ export function StationControlCard({ station }: StationControlCardProps) {
       toast.success('Atendimento finalizado!');
     } catch (error: any) {
       toast.error(error.message || 'Erro ao finalizar atendimento');
+    } finally {
+      setIsLoading(null);
+    }
+  };
+
+  const handleCancel = async () => {
+    setIsLoading('cancel');
+    try {
+      // Clear timers
+      if (autoCancelTimerRef.current) clearTimeout(autoCancelTimerRef.current);
+      if (countdownRef.current) clearInterval(countdownRef.current);
+      
+      await cancelCall.mutateAsync();
+      toast.info('Chamada cancelada - paciente devolvido para a fila');
+    } catch (error: any) {
+      toast.error(error.message || 'Erro ao cancelar chamada');
     } finally {
       setIsLoading(null);
     }
@@ -93,8 +173,13 @@ export function StationControlCard({ station }: StationControlCardProps) {
   };
 
   const isIdle = !currentPatient;
-  const isCalled = currentStep?.status === 'called';
   const isInProgress = currentStep?.status === 'in_progress';
+
+  const formatTime = (seconds: number) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+  };
 
   return (
     <Card className="card-elevated overflow-hidden">
@@ -135,11 +220,16 @@ export function StationControlCard({ station }: StationControlCardProps) {
                 )}
               </div>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
               <Badge className={isCalled ? 'status-called' : 'status-in-progress'}>
                 <Clock className="h-3 w-3 mr-1" />
                 {isCalled ? 'Aguardando chegada' : 'Em atendimento'}
               </Badge>
+              {isCalled && timeRemaining !== null && (
+                <Badge variant="outline" className="text-amber-600 border-amber-300">
+                  ⏱️ {formatTime(timeRemaining)}
+                </Badge>
+              )}
             </div>
           </div>
         ) : (
@@ -166,18 +256,33 @@ export function StationControlCard({ station }: StationControlCardProps) {
           )}
 
           {isCalled && (
-            <Button
-              className="w-full h-12 text-base bg-status-in-progress hover:bg-status-in-progress/90"
-              onClick={handleStart}
-              disabled={isLoading === 'start'}
-            >
-              {isLoading === 'start' ? (
-                <Loader2 className="h-5 w-5 mr-2 animate-spin" />
-              ) : (
-                <Play className="h-5 w-5 mr-2" />
-              )}
-              Iniciar Atendimento
-            </Button>
+            <>
+              <Button
+                className="w-full h-12 text-base bg-status-in-progress hover:bg-status-in-progress/90"
+                onClick={handleStart}
+                disabled={isLoading === 'start'}
+              >
+                {isLoading === 'start' ? (
+                  <Loader2 className="h-5 w-5 mr-2 animate-spin" />
+                ) : (
+                  <Play className="h-5 w-5 mr-2" />
+                )}
+                Iniciar Atendimento
+              </Button>
+              <Button
+                variant="outline"
+                className="w-full h-11 text-destructive border-destructive/50 hover:bg-destructive/10"
+                onClick={handleCancel}
+                disabled={isLoading === 'cancel'}
+              >
+                {isLoading === 'cancel' ? (
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                ) : (
+                  <XCircle className="h-4 w-4 mr-2" />
+                )}
+                Cancelar e Devolver para Fila
+              </Button>
+            </>
           )}
 
           {isInProgress && (
@@ -193,6 +298,20 @@ export function StationControlCard({ station }: StationControlCardProps) {
                   <CheckCircle className="h-5 w-5 mr-2" />
                 )}
                 Finalizar Atendimento
+              </Button>
+
+              <Button
+                variant="outline"
+                className="w-full h-11 text-destructive border-destructive/50 hover:bg-destructive/10"
+                onClick={handleCancel}
+                disabled={isLoading === 'cancel'}
+              >
+                {isLoading === 'cancel' ? (
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                ) : (
+                  <XCircle className="h-4 w-4 mr-2" />
+                )}
+                Cancelar e Devolver para Fila
               </Button>
 
               {station.step === 'triagem_medica' && (

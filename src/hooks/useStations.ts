@@ -1,7 +1,11 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Station, CircuitStep, Patient, PatientStep } from '@/types/patient-flow';
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
+
+// Track the last call type (priority or not) for weighted selection
+let lastCallWasPriority = false;
+let priorityCallCount = 0;
 
 export function useStations(step?: CircuitStep) {
   const queryClient = useQueryClient();
@@ -67,7 +71,6 @@ export function useStationActions(station: Station) {
       }
 
       // Get next pending patient for this step (excluding those being served elsewhere)
-      // Prioritized by is_priority DESC, then created_at ASC
       const { data: nextStep, error: stepError } = await supabase
         .from('patient_steps')
         .select('*, patients!inner(*)')
@@ -76,20 +79,44 @@ export function useStationActions(station: Station) {
         .eq('patients.is_completed', false)
         .eq('patients.is_being_served', false)
         .order('created_at', { ascending: true })
-        .limit(10);  // Get more to sort by priority
+        .limit(20);
 
       if (stepError) throw stepError;
       if (!nextStep || nextStep.length === 0) throw new Error('Não há pacientes aguardando para esta etapa');
 
-      // Sort by priority (priority first) then by created_at
-      const sortedSteps = nextStep.sort((a: any, b: any) => {
-        const aPriority = a.patients.is_priority ? 1 : 0;
-        const bPriority = b.patients.is_priority ? 1 : 0;
-        if (bPriority !== aPriority) return bPriority - aPriority;
-        return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
-      });
+      // Separate priority and non-priority patients
+      const priorityPatients = nextStep.filter((s: any) => s.patients.is_priority);
+      const normalPatients = nextStep.filter((s: any) => !s.patients.is_priority);
 
-      const selectedStep = sortedSteps[0];
+      let selectedStep;
+
+      // Weighted priority selection: 75% priority, 25% normal
+      // After 3 priority patients, call 1 normal patient (if available)
+      if (priorityPatients.length > 0 && normalPatients.length > 0) {
+        // Use weighted selection
+        if (priorityCallCount >= 3 && normalPatients.length > 0) {
+          // Call a normal patient after 3 priority calls
+          selectedStep = normalPatients[0];
+          priorityCallCount = 0;
+          lastCallWasPriority = false;
+        } else if (priorityPatients.length > 0) {
+          // Call priority patient
+          selectedStep = priorityPatients[0];
+          priorityCallCount++;
+          lastCallWasPriority = true;
+        } else {
+          selectedStep = normalPatients[0];
+          lastCallWasPriority = false;
+        }
+      } else if (priorityPatients.length > 0) {
+        selectedStep = priorityPatients[0];
+        lastCallWasPriority = true;
+      } else {
+        selectedStep = normalPatients[0];
+        priorityCallCount = 0;
+        lastCallWasPriority = false;
+      }
+
       const patient = (selectedStep as any).patients as Patient;
 
       // Mark patient as being served
@@ -230,6 +257,57 @@ export function useStationActions(station: Station) {
     },
   });
 
+  // Cancel call and return patient to queue
+  const cancelCall = useMutation({
+    mutationFn: async () => {
+      if (!station.current_patient_id) throw new Error('Nenhum paciente para cancelar');
+
+      // Reset step status to pending
+      const { error: stepError } = await supabase
+        .from('patient_steps')
+        .update({
+          status: 'pending',
+          called_at: null,
+          started_at: null,
+          station_number: null,
+        })
+        .eq('patient_id', station.current_patient_id)
+        .eq('step', station.step);
+
+      if (stepError) throw stepError;
+
+      // Mark patient as no longer being served
+      const { error: servingError } = await supabase
+        .from('patients')
+        .update({ is_being_served: false })
+        .eq('id', station.current_patient_id);
+
+      if (servingError) throw servingError;
+
+      // Deactivate TV call
+      await supabase
+        .from('tv_calls')
+        .update({ is_active: false })
+        .eq('patient_id', station.current_patient_id)
+        .eq('step', station.step);
+
+      // Clear station current patient
+      const { error: stationError } = await supabase
+        .from('stations')
+        .update({ current_patient_id: null })
+        .eq('id', station.id);
+
+      if (stationError) throw stationError;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['stations'] });
+      queryClient.invalidateQueries({ queryKey: ['patient-steps'] });
+      queryClient.invalidateQueries({ queryKey: ['tv-calls'] });
+      queryClient.invalidateQueries({ queryKey: ['queue-stats'] });
+      queryClient.invalidateQueries({ queryKey: ['patients'] });
+    },
+  });
+
   const addImageExam = useMutation({
     mutationFn: async (patientId: string) => {
       // Check if step already exists
@@ -300,6 +378,7 @@ export function useStationActions(station: Station) {
     callNextPatient,
     startService,
     finishService,
+    cancelCall,
     addImageExam,
     addCardioStep,
   };

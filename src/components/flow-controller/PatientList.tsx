@@ -1,6 +1,6 @@
 import { usePatients, usePatientSteps } from '@/hooks/usePatients';
 import { STEP_LABELS, STATUS_LABELS, Patient, PatientStep, CircuitStep } from '@/types/patient-flow';
-import { User, Clock, CheckCircle2, AlertCircle } from 'lucide-react';
+import { User, Clock, CheckCircle2, AlertCircle, AlertTriangle } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 
 function getPatientProgress(steps: PatientStep[]) {
@@ -19,14 +19,23 @@ function PatientCard({ patient, steps }: PatientCardProps) {
   const inProgressStep = steps.find((s) => s.status === 'in_progress' || s.status === 'called');
 
   return (
-    <div className="p-4 rounded-lg border bg-card hover:shadow-md transition-all animate-slide-in">
+    <div className={`p-4 rounded-lg border bg-card hover:shadow-md transition-all animate-slide-in ${patient.is_priority ? 'border-amber-500/50 bg-amber-500/5' : ''}`}>
       <div className="flex items-start justify-between gap-3 mb-3">
         <div className="flex items-center gap-3">
-          <div className="p-2 rounded-full bg-primary/10">
-            <User className="h-4 w-4 text-primary" />
+          <div className={`p-2 rounded-full ${patient.is_priority ? 'bg-amber-500/20' : 'bg-primary/10'}`}>
+            {patient.is_priority ? (
+              <AlertTriangle className="h-4 w-4 text-amber-500" />
+            ) : (
+              <User className="h-4 w-4 text-primary" />
+            )}
           </div>
           <div>
-            <h4 className="font-medium">{patient.name}</h4>
+            <div className="flex items-center gap-2">
+              {patient.is_priority && (
+                <Badge className="bg-amber-500 text-white text-xs px-1.5 py-0">⚡ PRIORITÁRIO</Badge>
+              )}
+              <h4 className="font-medium">{patient.name}</h4>
+            </div>
             {patient.registration_number && (
               <p className="text-sm text-muted-foreground">#{patient.registration_number}</p>
             )}
@@ -104,6 +113,14 @@ export function PatientList() {
     return steps.filter((s) => s.patient_id === patientId);
   };
 
+  // Sort patients by priority first, then by created_at
+  const sortedPatients = [...patients].sort((a, b) => {
+    if (a.is_priority !== b.is_priority) {
+      return a.is_priority ? -1 : 1;
+    }
+    return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+  });
+
   return (
     <div className="card-elevated p-6 animate-fade-in">
       <div className="flex items-center justify-between mb-6">
@@ -121,7 +138,7 @@ export function PatientList() {
         </div>
       ) : (
         <div className="space-y-3 max-h-[600px] overflow-y-auto pr-2">
-          {patients.map((patient) => (
+          {sortedPatients.map((patient) => (
             <PatientCard
               key={patient.id}
               patient={patient}

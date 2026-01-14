@@ -15,7 +15,7 @@ export function TVDisplay() {
   const { calls } = useTVCalls();
 
   const latestCall = calls[0];
-  const previousCalls = calls.slice(1, 4);
+  const queueList = calls.slice(0, 8); // Show up to 8 patients in the list
 
   // Use text-to-speech for announcements
   useTVSpeech(latestCall);
@@ -23,13 +23,13 @@ export function TVDisplay() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-background to-accent/20 flex flex-col">
       {/* Header */}
-      <header className="p-6 border-b bg-card/80 backdrop-blur-sm">
+      <header className="p-4 border-b bg-card/80 backdrop-blur-sm">
         <div className="container mx-auto flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="p-2 rounded-lg gradient-primary">
-              <Volume2 className="h-6 w-6 text-primary-foreground" />
+              <Volume2 className="h-5 w-5 text-primary-foreground" />
             </div>
-            <h1 className="text-2xl font-display font-bold">Painel de Chamadas</h1>
+            <h1 className="text-xl font-display font-bold">Painel de Chamadas</h1>
           </div>
           <div className="text-lg text-muted-foreground">
             {new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
@@ -37,71 +37,91 @@ export function TVDisplay() {
         </div>
       </header>
 
-      {/* Main content */}
-      <main className="flex-1 container mx-auto p-6 flex flex-col gap-6">
-        {latestCall ? (
-          <>
-            {/* Current call - Large display */}
-            <div className="flex-1 flex items-center justify-center">
-              <div className="w-full max-w-4xl card-elevated p-10 text-center tv-announcement animate-scale-in">
-                <div className="text-8xl mb-6">{stepEmojis[latestCall.step]}</div>
-                
-                <p className="text-2xl text-muted-foreground mb-4">
-                  Chamando paciente
-                </p>
-                
-                <h2 className="text-5xl md:text-6xl font-display font-bold text-foreground mb-6">
-                  {latestCall.patient_name}
-                </h2>
-                
-                <div className="flex items-center justify-center gap-4 text-2xl md:text-3xl">
-                  <span className="text-muted-foreground">Dirigir-se à</span>
-                  <ArrowRight className="h-8 w-8 text-primary" />
-                  <span className="font-display font-bold text-primary">
-                    {latestCall.station_name}
-                  </span>
-                </div>
+      {/* Main content - Split layout */}
+      <main className="flex-1 flex">
+        {/* Left side - Current call (large display) */}
+        <div className="flex-1 flex items-center justify-center p-6 border-r">
+          {latestCall ? (
+            <div className="w-full max-w-2xl card-elevated p-8 text-center tv-announcement animate-scale-in">
+              <div className="text-7xl mb-4">{stepEmojis[latestCall.step]}</div>
+              
+              <p className="text-xl text-muted-foreground mb-3">
+                Chamando paciente
+              </p>
+              
+              <h2 className="text-4xl md:text-5xl font-display font-bold text-foreground mb-4">
+                {latestCall.patient_name}
+              </h2>
+              
+              <div className="flex items-center justify-center gap-3 text-xl md:text-2xl">
+                <span className="text-muted-foreground">Dirigir-se à</span>
+                <ArrowRight className="h-6 w-6 text-primary" />
+                <span className="font-display font-bold text-primary">
+                  {latestCall.station_name}
+                </span>
               </div>
             </div>
-
-            {/* Previous calls */}
-            {previousCalls.length > 0 && (
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                {previousCalls.map((call) => (
-                  <div
-                    key={call.id}
-                    className="card-elevated p-5 opacity-75 hover:opacity-100 transition-opacity"
-                  >
-                    <div className="flex items-center gap-3">
-                      <span className="text-3xl">{stepEmojis[call.step]}</span>
-                      <div className="flex-1 min-w-0">
-                        <h3 className="font-semibold text-lg truncate">{call.patient_name}</h3>
-                        <p className="text-sm text-muted-foreground">{call.station_name}</p>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </>
-        ) : (
-          <div className="flex-1 flex items-center justify-center">
+          ) : (
             <div className="text-center">
-              <div className="text-8xl mb-6">⏳</div>
-              <h2 className="text-3xl font-display font-semibold text-muted-foreground">
+              <div className="text-7xl mb-4">⏳</div>
+              <h2 className="text-2xl font-display font-semibold text-muted-foreground">
                 Aguardando chamadas...
               </h2>
-              <p className="text-xl text-muted-foreground/70 mt-2">
+              <p className="text-lg text-muted-foreground/70 mt-2">
                 O próximo paciente será exibido aqui
               </p>
             </div>
-          </div>
-        )}
+          )}
+        </div>
+
+        {/* Right side - Queue list */}
+        <div className="w-[400px] flex flex-col bg-card/50 p-6">
+          <h3 className="text-lg font-display font-semibold mb-4 text-center border-b pb-3">
+            📋 Pacientes Chamados
+          </h3>
+          
+          {queueList.length > 0 ? (
+            <div className="flex-1 space-y-3 overflow-y-auto">
+              {queueList.map((call, index) => (
+                <div
+                  key={call.id}
+                  className={`p-4 rounded-lg border transition-all ${
+                    index === 0 
+                      ? 'bg-primary/10 border-primary/30 animate-pulse' 
+                      : 'bg-card hover:bg-accent/50'
+                  }`}
+                >
+                  <div className="flex items-center gap-3">
+                    <span className="text-2xl">{stepEmojis[call.step]}</span>
+                    <div className="flex-1 min-w-0">
+                      <h4 className={`font-semibold truncate ${index === 0 ? 'text-lg' : 'text-base'}`}>
+                        {call.patient_name}
+                      </h4>
+                      <div className="flex items-center gap-1 text-sm text-muted-foreground">
+                        <ArrowRight className="h-3 w-3" />
+                        <span className="truncate">{call.station_name}</span>
+                      </div>
+                    </div>
+                    {index === 0 && (
+                      <div className="w-2 h-2 rounded-full bg-primary animate-ping" />
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="flex-1 flex items-center justify-center">
+              <p className="text-muted-foreground text-center">
+                Nenhum paciente na fila de chamadas
+              </p>
+            </div>
+          )}
+        </div>
       </main>
 
       {/* Footer */}
-      <footer className="p-4 border-t bg-card/80 backdrop-blur-sm">
-        <div className="container mx-auto text-center text-muted-foreground">
+      <footer className="p-3 border-t bg-card/80 backdrop-blur-sm">
+        <div className="container mx-auto text-center text-sm text-muted-foreground">
           Circuito Pré-Operatório • Aguarde seu nome ser chamado
         </div>
       </footer>

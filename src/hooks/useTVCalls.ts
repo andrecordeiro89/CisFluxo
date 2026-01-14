@@ -14,7 +14,7 @@ export function useTVCalls() {
         .select('*')
         .eq('is_active', true)
         .order('called_at', { ascending: false })
-        .limit(5);
+        .limit(10); // Increased limit to show more patients
       
       if (error) throw error;
       return data as TVCall[];
