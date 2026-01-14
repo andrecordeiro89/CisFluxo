@@ -1,4 +1,3 @@
-import { DateProvider } from '@/contexts/DateContext';
 import { PatientRegistrationForm } from '@/components/flow-controller/PatientRegistrationForm';
 import { QueueOverview } from '@/components/flow-controller/QueueOverview';
 import { PatientList } from '@/components/flow-controller/PatientList';
@@ -10,7 +9,7 @@ import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { useSelectedDate } from '@/contexts/DateContext';
 
-function FlowControllerContent() {
+const FlowController = () => {
   const { isToday } = useSelectedDate();
 
   return (
@@ -81,14 +80,6 @@ function FlowControllerContent() {
         </div>
       </main>
     </div>
-  );
-}
-
-const FlowController = () => {
-  return (
-    <DateProvider>
-      <FlowControllerContent />
-    </DateProvider>
   );
 };
 
