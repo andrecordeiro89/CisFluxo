@@ -7,12 +7,26 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { usePatients } from '@/hooks/usePatients';
 import { toast } from 'sonner';
+import { MedicalSpecialty, SPECIALTY_LABELS } from '@/types/patient-flow';
+
+const SPECIALTIES: MedicalSpecialty[] = [
+  'ORTOPEDIA',
+  'OTORRINO',
+  'OFTALMO',
+  'TRAUMA',
+  'GERAL',
+  'UROLOGIA',
+  'GINECOLOGIA',
+  'OUTROS',
+];
 
 const patientSchema = z.object({
   name: z.string().min(2, 'Nome deve ter pelo menos 2 caracteres').max(100),
   registration_number: z.string().optional(),
+  specialty: z.enum(['ORTOPEDIA', 'OTORRINO', 'OFTALMO', 'TRAUMA', 'GERAL', 'UROLOGIA', 'GINECOLOGIA', 'OUTROS']),
   needs_cardio: z.boolean().default(false),
   needs_image_exam: z.boolean().default(false),
   is_priority: z.boolean().default(false),
@@ -29,6 +43,7 @@ export function PatientRegistrationForm() {
     defaultValues: {
       name: '',
       registration_number: '',
+      specialty: 'GERAL',
       needs_cardio: false,
       needs_image_exam: false,
       is_priority: false,
@@ -41,6 +56,7 @@ export function PatientRegistrationForm() {
       await registerPatient.mutateAsync({
         name: data.name,
         registration_number: data.registration_number,
+        specialty: data.specialty,
         needs_cardio: data.needs_cardio ?? false,
         needs_image_exam: data.needs_image_exam ?? false,
         is_priority: data.is_priority ?? false,
@@ -96,6 +112,31 @@ export function PatientRegistrationForm() {
                     className="h-12"
                   />
                 </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          <FormField
+            control={form.control}
+            name="specialty"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Especialidade</FormLabel>
+                <Select onValueChange={field.onChange} defaultValue={field.value}>
+                  <FormControl>
+                    <SelectTrigger className="h-12">
+                      <SelectValue placeholder="Selecione a especialidade" />
+                    </SelectTrigger>
+                  </FormControl>
+                  <SelectContent>
+                    {SPECIALTIES.map((specialty) => (
+                      <SelectItem key={specialty} value={specialty}>
+                        {SPECIALTY_LABELS[specialty]}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
                 <FormMessage />
               </FormItem>
             )}

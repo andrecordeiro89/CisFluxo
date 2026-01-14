@@ -70,6 +70,7 @@ export type Database = {
           needs_cardio: boolean
           needs_image_exam: boolean
           registration_number: string | null
+          specialty: Database["public"]["Enums"]["medical_specialty"]
         }
         Insert: {
           completed_at?: string | null
@@ -82,6 +83,7 @@ export type Database = {
           needs_cardio?: boolean
           needs_image_exam?: boolean
           registration_number?: string | null
+          specialty?: Database["public"]["Enums"]["medical_specialty"]
         }
         Update: {
           completed_at?: string | null
@@ -94,6 +96,7 @@ export type Database = {
           needs_cardio?: boolean
           needs_image_exam?: boolean
           registration_number?: string | null
+          specialty?: Database["public"]["Enums"]["medical_specialty"]
         }
         Relationships: []
       }
@@ -193,6 +196,15 @@ export type Database = {
         | "agendamento"
         | "cardiologista"
         | "exame_imagem"
+      medical_specialty:
+        | "ORTOPEDIA"
+        | "OTORRINO"
+        | "OFTALMO"
+        | "TRAUMA"
+        | "GERAL"
+        | "UROLOGIA"
+        | "GINECOLOGIA"
+        | "OUTROS"
       patient_step_status: "pending" | "called" | "in_progress" | "completed"
     }
     CompositeTypes: {
@@ -327,6 +339,16 @@ export const Constants = {
         "agendamento",
         "cardiologista",
         "exame_imagem",
+      ],
+      medical_specialty: [
+        "ORTOPEDIA",
+        "OTORRINO",
+        "OFTALMO",
+        "TRAUMA",
+        "GERAL",
+        "UROLOGIA",
+        "GINECOLOGIA",
+        "OUTROS",
       ],
       patient_step_status: ["pending", "called", "in_progress", "completed"],
     },
