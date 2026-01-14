@@ -2,9 +2,23 @@ export type PatientStepStatus = 'pending' | 'called' | 'in_progress' | 'complete
 
 export type CircuitStep = 'triagem_medica' | 'exames_lab_ecg' | 'agendamento' | 'cardiologista' | 'exame_imagem';
 
+export type MedicalSpecialty = 'ORTOPEDIA' | 'OTORRINO' | 'OFTALMO' | 'TRAUMA' | 'GERAL' | 'UROLOGIA' | 'GINECOLOGIA' | 'OUTROS';
+
+export const SPECIALTY_LABELS: Record<MedicalSpecialty, string> = {
+  ORTOPEDIA: 'Ortopedia',
+  OTORRINO: 'Otorrino',
+  OFTALMO: 'Oftalmo',
+  TRAUMA: 'Trauma',
+  GERAL: 'Geral',
+  UROLOGIA: 'Urologia',
+  GINECOLOGIA: 'Ginecologia',
+  OUTROS: 'Outros',
+};
+
 export interface Patient {
   id: string;
   name: string;
+  specialty: MedicalSpecialty;
   needs_cardio: boolean;
   needs_image_exam: boolean;
   registration_number: string | null;

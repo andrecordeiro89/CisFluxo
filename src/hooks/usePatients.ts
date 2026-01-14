@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { Patient, PatientStep, CircuitStep } from '@/types/patient-flow';
+import { Patient, PatientStep, CircuitStep, MedicalSpecialty } from '@/types/patient-flow';
 import { useEffect } from 'react';
 import { useSelectedDate } from '@/contexts/DateContext';
 
@@ -52,6 +52,7 @@ export function usePatients() {
     mutationFn: async (data: {
       name: string;
       registration_number?: string;
+      specialty: MedicalSpecialty;
       needs_cardio: boolean;
       needs_image_exam: boolean;
       is_priority: boolean;
@@ -62,6 +63,7 @@ export function usePatients() {
         .insert({
           name: data.name,
           registration_number: data.registration_number || null,
+          specialty: data.specialty,
           needs_cardio: data.needs_cardio,
           needs_image_exam: data.needs_image_exam,
           is_priority: data.is_priority,

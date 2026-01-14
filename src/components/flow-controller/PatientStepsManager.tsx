@@ -1,10 +1,11 @@
 import { useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Settings, CheckCircle, XCircle, Plus, Trash2, User } from 'lucide-react';
+import { Settings, CheckCircle, Plus, Trash2, User, UserX } from 'lucide-react';
 import { usePatients, usePatientSteps } from '@/hooks/usePatients';
-import { STEP_LABELS, STATUS_LABELS, CircuitStep, Patient, PatientStep } from '@/types/patient-flow';
+import { STEP_LABELS, STATUS_LABELS, SPECIALTY_LABELS, CircuitStep, Patient, PatientStep } from '@/types/patient-flow';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -67,9 +68,11 @@ function PatientStepItem({ step, onComplete, onRemove, isLoading }: PatientStepI
 interface PatientManagerProps {
   patient: Patient;
   steps: PatientStep[];
+  onDeletePatient: (patientId: string) => void;
+  isDeletingPatient: boolean;
 }
 
-function PatientManager({ patient, steps }: PatientManagerProps) {
+function PatientManager({ patient, steps, onDeletePatient, isDeletingPatient }: PatientManagerProps) {
   const [newStep, setNewStep] = useState<CircuitStep | ''>('');
   const queryClient = useQueryClient();
 
@@ -83,7 +86,7 @@ function PatientManager({ patient, steps }: PatientManagerProps) {
         .update({ 
           status: 'completed', 
           completed_at: new Date().toISOString(),
-          started_at: new Date().toISOString() // Set started_at if not set
+          started_at: new Date().toISOString()
         })
         .eq('id', stepId);
       if (error) throw error;
@@ -134,23 +137,59 @@ function PatientManager({ patient, steps }: PatientManagerProps) {
     },
   });
 
-  const isLoading = completeStep.isPending || removeStep.isPending || addStep.isPending;
+  const isLoading = completeStep.isPending || removeStep.isPending || addStep.isPending || isDeletingPatient;
 
   return (
     <div className="border rounded-lg p-4 space-y-4">
-      <div className="flex items-center gap-3">
-        <div className="p-2 rounded-full bg-primary/10">
-          <User className="h-4 w-4 text-primary" />
-        </div>
-        <div>
-          <h4 className="font-semibold">{patient.name}</h4>
-          {patient.registration_number && (
-            <p className="text-sm text-muted-foreground">#{patient.registration_number}</p>
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <div className="p-2 rounded-full bg-primary/10">
+            <User className="h-4 w-4 text-primary" />
+          </div>
+          <div>
+            <h4 className="font-semibold">{patient.name}</h4>
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              {patient.registration_number && <span>#{patient.registration_number}</span>}
+              <Badge variant="outline" className="text-xs">
+                {SPECIALTY_LABELS[patient.specialty]}
+              </Badge>
+            </div>
+          </div>
+          {patient.is_priority && (
+            <Badge className="bg-amber-500 text-white">Prioritário</Badge>
           )}
         </div>
-        {patient.is_priority && (
-          <Badge className="bg-amber-500 text-white">Prioritário</Badge>
-        )}
+        
+        <AlertDialog>
+          <AlertDialogTrigger asChild>
+            <Button 
+              size="sm" 
+              variant="destructive"
+              disabled={isLoading}
+            >
+              <UserX className="h-4 w-4 mr-1" />
+              Apagar
+            </Button>
+          </AlertDialogTrigger>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Confirmar exclusão</AlertDialogTitle>
+              <AlertDialogDescription>
+                Tem certeza que deseja apagar o paciente <strong>{patient.name}</strong>? 
+                Todas as etapas associadas também serão removidas. Esta ação não pode ser desfeita.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancelar</AlertDialogCancel>
+              <AlertDialogAction 
+                onClick={() => onDeletePatient(patient.id)}
+                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              >
+                Apagar Paciente
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </div>
 
       <div className="space-y-2">
@@ -202,6 +241,49 @@ function PatientManager({ patient, steps }: PatientManagerProps) {
 export function PatientStepsManager() {
   const { patients } = usePatients();
   const { steps } = usePatientSteps();
+  const queryClient = useQueryClient();
+
+  const deletePatient = useMutation({
+    mutationFn: async (patientId: string) => {
+      // First delete all steps
+      const { error: stepsError } = await supabase
+        .from('patient_steps')
+        .delete()
+        .eq('patient_id', patientId);
+      if (stepsError) throw stepsError;
+
+      // Delete TV calls
+      const { error: tvError } = await supabase
+        .from('tv_calls')
+        .delete()
+        .eq('patient_id', patientId);
+      if (tvError) throw tvError;
+
+      // Clear from stations
+      const { error: stationError } = await supabase
+        .from('stations')
+        .update({ current_patient_id: null })
+        .eq('current_patient_id', patientId);
+      if (stationError) throw stationError;
+
+      // Delete patient
+      const { error: patientError } = await supabase
+        .from('patients')
+        .delete()
+        .eq('id', patientId);
+      if (patientError) throw patientError;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['patients'] });
+      queryClient.invalidateQueries({ queryKey: ['patient-steps'] });
+      queryClient.invalidateQueries({ queryKey: ['queue-stats'] });
+      queryClient.invalidateQueries({ queryKey: ['stations'] });
+      toast.success('Paciente removido com sucesso');
+    },
+    onError: () => {
+      toast.error('Erro ao remover paciente');
+    },
+  });
 
   const getPatientSteps = (patientId: string) => {
     return steps.filter((s) => s.patient_id === patientId);
@@ -234,6 +316,8 @@ export function PatientStepsManager() {
                 key={patient.id}
                 patient={patient}
                 steps={getPatientSteps(patient.id)}
+                onDeletePatient={(id) => deletePatient.mutate(id)}
+                isDeletingPatient={deletePatient.isPending}
               />
             ))
           )}
