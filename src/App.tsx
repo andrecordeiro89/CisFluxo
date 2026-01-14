@@ -3,6 +3,7 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { DateProvider } from "@/contexts/DateContext";
 import FlowController from "./pages/FlowController";
 import StationPage from "./pages/StationPage";
 import TVPage from "./pages/TVPage";
@@ -12,18 +13,20 @@ const queryClient = new QueryClient();
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
-    <TooltipProvider>
-      <Toaster />
-      <Sonner />
-      <BrowserRouter>
-        <Routes>
-          <Route path="/" element={<FlowController />} />
-          <Route path="/estacao" element={<StationPage />} />
-          <Route path="/tv" element={<TVPage />} />
-          <Route path="*" element={<NotFound />} />
-        </Routes>
-      </BrowserRouter>
-    </TooltipProvider>
+    <DateProvider>
+      <TooltipProvider>
+        <Toaster />
+        <Sonner />
+        <BrowserRouter>
+          <Routes>
+            <Route path="/" element={<FlowController />} />
+            <Route path="/estacao" element={<StationPage />} />
+            <Route path="/tv" element={<TVPage />} />
+            <Route path="*" element={<NotFound />} />
+          </Routes>
+        </BrowserRouter>
+      </TooltipProvider>
+    </DateProvider>
   </QueryClientProvider>
 );
 
