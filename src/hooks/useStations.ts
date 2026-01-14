@@ -46,8 +46,8 @@ export function useStations(step?: CircuitStep) {
 export function useStationActions(station: Station) {
   const queryClient = useQueryClient();
 
-  // ECG allows 2 simultaneous patients, other stations only 1
-  const maxSimultaneousPatients = station.step === 'exames_lab_ecg' ? 2 : 1;
+  // ECG and Agendamento allow 2 simultaneous patients, other stations only 1
+  const maxSimultaneousPatients = (station.step === 'exames_lab_ecg' || station.step === 'agendamento') ? 2 : 1;
 
   const callNextPatient = useMutation({
     mutationFn: async () => {
