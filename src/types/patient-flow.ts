@@ -1,6 +1,8 @@
 export type PatientStepStatus = 'pending' | 'called' | 'in_progress' | 'completed';
 
-export type CircuitStep = 'triagem_medica' | 'exames_lab_ecg' | 'agendamento' | 'cardiologista' | 'exame_imagem';
+export type CircuitStep = 'triagem_medica' | 'exames_lab_ecg' | 'agendamento' | 'cardiologista' | 'exame_imagem' | 'especialista';
+
+export type FlowType = 'consulta_especialista' | 'circuito_preop';
 
 export type MedicalSpecialty = 'ORTOPEDIA' | 'OTORRINO' | 'OFTALMO' | 'TRAUMA' | 'GERAL' | 'UROLOGIA' | 'GINECOLOGIA' | 'OUTROS';
 
@@ -15,6 +17,11 @@ export const SPECIALTY_LABELS: Record<MedicalSpecialty, string> = {
   OUTROS: 'Outros',
 };
 
+export const FLOW_TYPE_LABELS: Record<FlowType, string> = {
+  consulta_especialista: 'Primeira Consulta com Especialista',
+  circuito_preop: 'Circuito Pré-Operatório',
+};
+
 export interface Patient {
   id: string;
   name: string;
@@ -27,6 +34,8 @@ export interface Patient {
   is_completed: boolean;
   is_priority: boolean;
   is_being_served: boolean;
+  flow_type: FlowType;
+  has_surgery_indication: boolean;
 }
 
 export interface PatientStep {
@@ -68,6 +77,7 @@ export const STEP_LABELS: Record<CircuitStep, string> = {
   agendamento: 'Agendamento',
   cardiologista: 'Cardiologista',
   exame_imagem: 'Exame de Imagem',
+  especialista: 'Consulta Especialista',
 };
 
 export const STEP_COLORS: Record<CircuitStep, string> = {
@@ -76,6 +86,7 @@ export const STEP_COLORS: Record<CircuitStep, string> = {
   agendamento: 'step-agendamento',
   cardiologista: 'step-cardio',
   exame_imagem: 'step-imagem',
+  especialista: 'step-especialista',
 };
 
 export const STATUS_LABELS: Record<PatientStepStatus, string> = {

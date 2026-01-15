@@ -14,6 +14,7 @@ const stepIcons: Record<CircuitStep, string> = {
   agendamento: '📅',
   cardiologista: '❤️',
   exame_imagem: '📷',
+  especialista: '👨‍⚕️',
 };
 
 function StepReportCard({ report }: { report: StepReport }) {

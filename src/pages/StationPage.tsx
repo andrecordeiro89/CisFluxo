@@ -13,6 +13,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 
 const AVAILABLE_STEPS: CircuitStep[] = [
+  'especialista',
   'triagem_medica',
   'exames_lab_ecg',
   'agendamento',
@@ -21,7 +22,7 @@ const AVAILABLE_STEPS: CircuitStep[] = [
 ];
 
 const StationPage = () => {
-  const [selectedStep, setSelectedStep] = useState<CircuitStep>('triagem_medica');
+  const [selectedStep, setSelectedStep] = useState<CircuitStep>('especialista');
   const { stations, isLoading } = useStations(selectedStep);
 
   return (

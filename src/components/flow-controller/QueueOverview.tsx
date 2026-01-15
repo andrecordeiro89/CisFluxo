@@ -8,6 +8,7 @@ const stepIcons: Record<CircuitStep, string> = {
   agendamento: '📅',
   cardiologista: '❤️',
   exame_imagem: '📷',
+  especialista: '👨‍⚕️',
 };
 
 export function QueueOverview() {
