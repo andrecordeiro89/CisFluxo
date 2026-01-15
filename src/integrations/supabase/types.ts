@@ -62,6 +62,8 @@ export type Database = {
         Row: {
           completed_at: string | null
           created_at: string
+          flow_type: string
+          has_surgery_indication: boolean | null
           id: string
           is_being_served: boolean
           is_completed: boolean
@@ -75,6 +77,8 @@ export type Database = {
         Insert: {
           completed_at?: string | null
           created_at?: string
+          flow_type?: string
+          has_surgery_indication?: boolean | null
           id?: string
           is_being_served?: boolean
           is_completed?: boolean
@@ -88,6 +92,8 @@ export type Database = {
         Update: {
           completed_at?: string | null
           created_at?: string
+          flow_type?: string
+          has_surgery_indication?: boolean | null
           id?: string
           is_being_served?: boolean
           is_completed?: boolean
@@ -196,6 +202,7 @@ export type Database = {
         | "agendamento"
         | "cardiologista"
         | "exame_imagem"
+        | "especialista"
       medical_specialty:
         | "ORTOPEDIA"
         | "OTORRINO"
@@ -339,6 +346,7 @@ export const Constants = {
         "agendamento",
         "cardiologista",
         "exame_imagem",
+        "especialista",
       ],
       medical_specialty: [
         "ORTOPEDIA",
