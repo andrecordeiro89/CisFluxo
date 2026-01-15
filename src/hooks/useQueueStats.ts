@@ -19,6 +19,7 @@ export function useQueueStats() {
     queryKey: ['queue-stats', startOfSelectedDay.toISOString()],
     queryFn: async () => {
       const steps: CircuitStep[] = [
+        'especialista',
         'triagem_medica',
         'exames_lab_ecg',
         'agendamento',

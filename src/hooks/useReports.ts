@@ -41,6 +41,7 @@ export function useReports(startDate: Date, endDate: Date) {
       if (stepsError) throw stepsError;
 
       const allSteps: CircuitStep[] = [
+        'especialista',
         'triagem_medica',
         'exames_lab_ecg',
         'agendamento',

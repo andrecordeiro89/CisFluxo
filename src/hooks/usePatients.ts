@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { Patient, PatientStep, CircuitStep, MedicalSpecialty } from '@/types/patient-flow';
+import { Patient, PatientStep, CircuitStep, MedicalSpecialty, FlowType } from '@/types/patient-flow';
 import { useEffect } from 'react';
 import { useSelectedDate } from '@/contexts/DateContext';
 
@@ -53,6 +53,7 @@ export function usePatients() {
       name: string;
       registration_number?: string;
       specialty: MedicalSpecialty;
+      flow_type: FlowType;
       needs_cardio: boolean;
       needs_image_exam: boolean;
       is_priority: boolean;
@@ -64,6 +65,7 @@ export function usePatients() {
           name: data.name,
           registration_number: data.registration_number || null,
           specialty: data.specialty,
+          flow_type: data.flow_type,
           needs_cardio: data.needs_cardio,
           needs_image_exam: data.needs_image_exam,
           is_priority: data.is_priority,
@@ -73,19 +75,25 @@ export function usePatients() {
 
       if (patientError) throw patientError;
 
-      // Create required steps
-      const steps: { patient_id: string; step: CircuitStep }[] = [
-        { patient_id: patient.id, step: 'triagem_medica' },
-        { patient_id: patient.id, step: 'exames_lab_ecg' },
-        { patient_id: patient.id, step: 'agendamento' },
-      ];
+      // Create steps based on flow type
+      const steps: { patient_id: string; step: CircuitStep }[] = [];
 
-      if (data.needs_cardio) {
-        steps.push({ patient_id: patient.id, step: 'cardiologista' });
-      }
+      if (data.flow_type === 'consulta_especialista') {
+        // Patient goes to specialist first
+        steps.push({ patient_id: patient.id, step: 'especialista' });
+      } else {
+        // Patient goes directly to pre-operative circuit
+        steps.push({ patient_id: patient.id, step: 'triagem_medica' });
+        steps.push({ patient_id: patient.id, step: 'exames_lab_ecg' });
+        steps.push({ patient_id: patient.id, step: 'agendamento' });
 
-      if (data.needs_image_exam) {
-        steps.push({ patient_id: patient.id, step: 'exame_imagem' });
+        if (data.needs_cardio) {
+          steps.push({ patient_id: patient.id, step: 'cardiologista' });
+        }
+
+        if (data.needs_image_exam) {
+          steps.push({ patient_id: patient.id, step: 'exame_imagem' });
+        }
       }
 
       const { error: stepsError } = await supabase
@@ -102,10 +110,41 @@ export function usePatients() {
     },
   });
 
+  // Add patient to pre-operative circuit (called when specialist finishes with surgery indication)
+  const addToPreopCircuit = useMutation({
+    mutationFn: async (patientId: string) => {
+      // Mark patient as having surgery indication
+      const { error: updateError } = await supabase
+        .from('patients')
+        .update({ has_surgery_indication: true })
+        .eq('id', patientId);
+
+      if (updateError) throw updateError;
+
+      // Add pre-operative circuit steps
+      const steps: { patient_id: string; step: CircuitStep }[] = [
+        { patient_id: patientId, step: 'triagem_medica' },
+        { patient_id: patientId, step: 'exames_lab_ecg' },
+        { patient_id: patientId, step: 'agendamento' },
+      ];
+
+      const { error: stepsError } = await supabase
+        .from('patient_steps')
+        .insert(steps);
+
+      if (stepsError) throw stepsError;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['patients'] });
+      queryClient.invalidateQueries({ queryKey: ['patient-steps'] });
+    },
+  });
+
   return {
     patients,
     isLoading,
     registerPatient,
+    addToPreopCircuit,
     isToday,
   };
 }

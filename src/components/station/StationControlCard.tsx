@@ -7,6 +7,7 @@ import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Phone, Play, CheckCircle, ImageIcon, User, Clock, Loader2, AlertTriangle, Heart, XCircle } from 'lucide-react';
 import { toast } from 'sonner';
+import { SurgeryIndicationDialog } from './SurgeryIndicationDialog';
 
 interface StationControlCardProps {
   station: Station;
@@ -16,12 +17,16 @@ const AUTO_CANCEL_TIMEOUT_MS = 3 * 60 * 1000; // 3 minutes
 
 export function StationControlCard({ station }: StationControlCardProps) {
   const { callNextPatient, startService, finishService, cancelCall, addImageExam, addCardioStep } = useStationActions(station);
-  const { patients } = usePatients();
+  const { patients, addToPreopCircuit } = usePatients();
   const { steps } = usePatientSteps();
   const [isLoading, setIsLoading] = useState<string | null>(null);
   const [timeRemaining, setTimeRemaining] = useState<number | null>(null);
   const autoCancelTimerRef = useRef<NodeJS.Timeout | null>(null);
   const countdownRef = useRef<NodeJS.Timeout | null>(null);
+  
+  // Surgery indication dialog state
+  const [showSurgeryDialog, setShowSurgeryDialog] = useState(false);
+  const [pendingFinishPatient, setPendingFinishPatient] = useState<Patient | null>(null);
 
   const currentPatient = patients.find((p) => p.id === station.current_patient_id);
   const currentStep = currentPatient
@@ -119,6 +124,18 @@ export function StationControlCard({ station }: StationControlCardProps) {
   };
 
   const handleFinish = async () => {
+    // For specialist station, show surgery indication dialog
+    if (station.step === 'especialista' && currentPatient) {
+      setPendingFinishPatient(currentPatient);
+      setShowSurgeryDialog(true);
+      return;
+    }
+
+    // For other stations, finish directly
+    await performFinish();
+  };
+
+  const performFinish = async () => {
     setIsLoading('finish');
     try {
       await finishService.mutateAsync();
@@ -127,6 +144,28 @@ export function StationControlCard({ station }: StationControlCardProps) {
       toast.error(error.message || 'Erro ao finalizar atendimento');
     } finally {
       setIsLoading(null);
+    }
+  };
+
+  const handleSurgeryIndication = async (hasSurgeryIndication: boolean) => {
+    setIsLoading('finish');
+    try {
+      // First, finish the specialist service
+      await finishService.mutateAsync();
+
+      // If has surgery indication, add to pre-op circuit
+      if (hasSurgeryIndication && pendingFinishPatient) {
+        await addToPreopCircuit.mutateAsync(pendingFinishPatient.id);
+        toast.success('Paciente incluído no circuito pré-operatório!');
+      } else {
+        toast.success('Atendimento finalizado!');
+      }
+    } catch (error: any) {
+      toast.error(error.message || 'Erro ao finalizar atendimento');
+    } finally {
+      setIsLoading(null);
+      setShowSurgeryDialog(false);
+      setPendingFinishPatient(null);
     }
   };
 
@@ -182,177 +221,187 @@ export function StationControlCard({ station }: StationControlCardProps) {
   };
 
   return (
-    <Card className="card-elevated overflow-hidden">
-      {/* Header */}
-      <div className={`p-4 ${getStepBgClass(station.step)}`}>
-        <div className="flex items-center justify-between">
-          <h3 className="font-display font-semibold text-primary-foreground text-lg">
-            {station.name}
-          </h3>
-          <Badge variant="secondary" className="bg-white/20 text-white border-0">
-            {pendingCount} na fila
-          </Badge>
+    <>
+      <Card className="card-elevated overflow-hidden">
+        {/* Header */}
+        <div className={`p-4 ${getStepBgClass(station.step)}`}>
+          <div className="flex items-center justify-between">
+            <h3 className="font-display font-semibold text-primary-foreground text-lg">
+              {station.name}
+            </h3>
+            <Badge variant="secondary" className="bg-white/20 text-white border-0">
+              {pendingCount} na fila
+            </Badge>
+          </div>
         </div>
-      </div>
 
-      {/* Content */}
-      <div className="p-5">
-        {/* Current patient info */}
-        {currentPatient ? (
-          <div className={`mb-5 p-4 rounded-lg border ${currentPatient.is_priority ? 'bg-amber-500/10 border-amber-500/50' : 'bg-accent/50'}`}>
-            <div className="flex items-center gap-3 mb-2">
-              <div className={`p-2 rounded-full ${currentPatient.is_priority ? 'bg-amber-500/20' : 'bg-primary/10'}`}>
-                {currentPatient.is_priority ? (
-                  <AlertTriangle className="h-5 w-5 text-amber-500" />
-                ) : (
-                  <User className="h-5 w-5 text-primary" />
-                )}
-              </div>
-              <div className="flex-1">
-                <div className="flex items-center gap-2">
-                  <p className="font-semibold text-lg">{currentPatient.name}</p>
-                  {currentPatient.is_priority && (
-                    <Badge className="bg-amber-500 text-white text-xs">PRIORITÁRIO</Badge>
+        {/* Content */}
+        <div className="p-5">
+          {/* Current patient info */}
+          {currentPatient ? (
+            <div className={`mb-5 p-4 rounded-lg border ${currentPatient.is_priority ? 'bg-amber-500/10 border-amber-500/50' : 'bg-accent/50'}`}>
+              <div className="flex items-center gap-3 mb-2">
+                <div className={`p-2 rounded-full ${currentPatient.is_priority ? 'bg-amber-500/20' : 'bg-primary/10'}`}>
+                  {currentPatient.is_priority ? (
+                    <AlertTriangle className="h-5 w-5 text-amber-500" />
+                  ) : (
+                    <User className="h-5 w-5 text-primary" />
                   )}
                 </div>
-                {currentPatient.registration_number && (
-                  <p className="text-sm text-muted-foreground">#{currentPatient.registration_number}</p>
-                )}
+                <div className="flex-1">
+                  <div className="flex items-center gap-2">
+                    <p className="font-semibold text-lg">{currentPatient.name}</p>
+                    {currentPatient.is_priority && (
+                      <Badge className="bg-amber-500 text-white text-xs">PRIORITÁRIO</Badge>
+                    )}
+                  </div>
+                  {currentPatient.registration_number && (
+                    <p className="text-sm text-muted-foreground">#{currentPatient.registration_number}</p>
+                  )}
+                </div>
               </div>
-            </div>
-            <div className="flex items-center gap-2 flex-wrap">
-              <Badge className={isCalled ? 'status-called' : 'status-in-progress'}>
-                <Clock className="h-3 w-3 mr-1" />
-                {isCalled ? 'Aguardando chegada' : 'Em atendimento'}
-              </Badge>
-              {isCalled && timeRemaining !== null && (
-                <Badge variant="outline" className="text-amber-600 border-amber-300">
-                  ⏱️ {formatTime(timeRemaining)}
+              <div className="flex items-center gap-2 flex-wrap">
+                <Badge className={isCalled ? 'status-called' : 'status-in-progress'}>
+                  <Clock className="h-3 w-3 mr-1" />
+                  {isCalled ? 'Aguardando chegada' : 'Em atendimento'}
                 </Badge>
-              )}
+                {isCalled && timeRemaining !== null && (
+                  <Badge variant="outline" className="text-amber-600 border-amber-300">
+                    ⏱️ {formatTime(timeRemaining)}
+                  </Badge>
+                )}
+              </div>
             </div>
-          </div>
-        ) : (
-          <div className="mb-5 p-4 rounded-lg border border-dashed text-center">
-            <p className="text-muted-foreground">Nenhum paciente em atendimento</p>
-          </div>
-        )}
-
-        {/* Actions */}
-        <div className="space-y-3">
-          {isIdle && (
-            <Button
-              className="w-full h-12 text-base gradient-primary"
-              onClick={handleCall}
-              disabled={isLoading === 'call' || pendingCount === 0}
-            >
-              {isLoading === 'call' ? (
-                <Loader2 className="h-5 w-5 mr-2 animate-spin" />
-              ) : (
-                <Phone className="h-5 w-5 mr-2" />
-              )}
-              Chamar Próximo
-            </Button>
+          ) : (
+            <div className="mb-5 p-4 rounded-lg border border-dashed text-center">
+              <p className="text-muted-foreground">Nenhum paciente em atendimento</p>
+            </div>
           )}
 
-          {isCalled && (
-            <>
+          {/* Actions */}
+          <div className="space-y-3">
+            {isIdle && (
               <Button
-                className="w-full h-12 text-base bg-status-in-progress hover:bg-status-in-progress/90"
-                onClick={handleStart}
-                disabled={isLoading === 'start'}
+                className="w-full h-12 text-base gradient-primary"
+                onClick={handleCall}
+                disabled={isLoading === 'call' || pendingCount === 0}
               >
-                {isLoading === 'start' ? (
+                {isLoading === 'call' ? (
                   <Loader2 className="h-5 w-5 mr-2 animate-spin" />
                 ) : (
-                  <Play className="h-5 w-5 mr-2" />
+                  <Phone className="h-5 w-5 mr-2" />
                 )}
-                Iniciar Atendimento
+                Chamar Próximo
               </Button>
-              <Button
-                variant="outline"
-                className="w-full h-11 text-destructive border-destructive/50 hover:bg-destructive/10"
-                onClick={handleCancel}
-                disabled={isLoading === 'cancel'}
-              >
-                {isLoading === 'cancel' ? (
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                ) : (
-                  <XCircle className="h-4 w-4 mr-2" />
-                )}
-                Cancelar e Devolver para Fila
-              </Button>
-            </>
-          )}
+            )}
 
-          {isInProgress && (
-            <>
-              <Button
-                className="w-full h-12 text-base bg-status-completed hover:bg-status-completed/90"
-                onClick={handleFinish}
-                disabled={isLoading === 'finish'}
-              >
-                {isLoading === 'finish' ? (
-                  <Loader2 className="h-5 w-5 mr-2 animate-spin" />
-                ) : (
-                  <CheckCircle className="h-5 w-5 mr-2" />
-                )}
-                Finalizar Atendimento
-              </Button>
-
-              <Button
-                variant="outline"
-                className="w-full h-11 text-destructive border-destructive/50 hover:bg-destructive/10"
-                onClick={handleCancel}
-                disabled={isLoading === 'cancel'}
-              >
-                {isLoading === 'cancel' ? (
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                ) : (
-                  <XCircle className="h-4 w-4 mr-2" />
-                )}
-                Cancelar e Devolver para Fila
-              </Button>
-
-              {station.step === 'triagem_medica' && (
-                <div className="flex gap-2">
-                  {!currentPatient.needs_cardio && (
-                    <Button
-                      variant="outline"
-                      className="flex-1 h-11"
-                      onClick={handleAddCardio}
-                      disabled={isLoading === 'cardio'}
-                    >
-                      {isLoading === 'cardio' ? (
-                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                      ) : (
-                        <Heart className="h-4 w-4 mr-2" />
-                      )}
-                      + Cardio
-                    </Button>
+            {isCalled && (
+              <>
+                <Button
+                  className="w-full h-12 text-base bg-status-in-progress hover:bg-status-in-progress/90"
+                  onClick={handleStart}
+                  disabled={isLoading === 'start'}
+                >
+                  {isLoading === 'start' ? (
+                    <Loader2 className="h-5 w-5 mr-2 animate-spin" />
+                  ) : (
+                    <Play className="h-5 w-5 mr-2" />
                   )}
-                  {!currentPatient.needs_image_exam && (
-                    <Button
-                      variant="outline"
-                      className="flex-1 h-11"
-                      onClick={handleAddImageExam}
-                      disabled={isLoading === 'image'}
-                    >
-                      {isLoading === 'image' ? (
-                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                      ) : (
-                        <ImageIcon className="h-4 w-4 mr-2" />
-                      )}
-                      + Imagem
-                    </Button>
+                  Iniciar Atendimento
+                </Button>
+                <Button
+                  variant="outline"
+                  className="w-full h-11 text-destructive border-destructive/50 hover:bg-destructive/10"
+                  onClick={handleCancel}
+                  disabled={isLoading === 'cancel'}
+                >
+                  {isLoading === 'cancel' ? (
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  ) : (
+                    <XCircle className="h-4 w-4 mr-2" />
                   )}
-                </div>
-              )}
-            </>
-          )}
+                  Cancelar e Devolver para Fila
+                </Button>
+              </>
+            )}
+
+            {isInProgress && (
+              <>
+                <Button
+                  className="w-full h-12 text-base bg-status-completed hover:bg-status-completed/90"
+                  onClick={handleFinish}
+                  disabled={isLoading === 'finish'}
+                >
+                  {isLoading === 'finish' ? (
+                    <Loader2 className="h-5 w-5 mr-2 animate-spin" />
+                  ) : (
+                    <CheckCircle className="h-5 w-5 mr-2" />
+                  )}
+                  Finalizar Atendimento
+                </Button>
+
+                <Button
+                  variant="outline"
+                  className="w-full h-11 text-destructive border-destructive/50 hover:bg-destructive/10"
+                  onClick={handleCancel}
+                  disabled={isLoading === 'cancel'}
+                >
+                  {isLoading === 'cancel' ? (
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  ) : (
+                    <XCircle className="h-4 w-4 mr-2" />
+                  )}
+                  Cancelar e Devolver para Fila
+                </Button>
+
+                {station.step === 'triagem_medica' && (
+                  <div className="flex gap-2">
+                    {!currentPatient.needs_cardio && (
+                      <Button
+                        variant="outline"
+                        className="flex-1 h-11"
+                        onClick={handleAddCardio}
+                        disabled={isLoading === 'cardio'}
+                      >
+                        {isLoading === 'cardio' ? (
+                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                        ) : (
+                          <Heart className="h-4 w-4 mr-2" />
+                        )}
+                        + Cardio
+                      </Button>
+                    )}
+                    {!currentPatient.needs_image_exam && (
+                      <Button
+                        variant="outline"
+                        className="flex-1 h-11"
+                        onClick={handleAddImageExam}
+                        disabled={isLoading === 'image'}
+                      >
+                        {isLoading === 'image' ? (
+                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                        ) : (
+                          <ImageIcon className="h-4 w-4 mr-2" />
+                        )}
+                        + Imagem
+                      </Button>
+                    )}
+                  </div>
+                )}
+              </>
+            )}
+          </div>
         </div>
-      </div>
-    </Card>
+      </Card>
+
+      {/* Surgery Indication Dialog */}
+      <SurgeryIndicationDialog
+        open={showSurgeryDialog}
+        patientName={pendingFinishPatient?.name || ''}
+        onConfirm={handleSurgeryIndication}
+        isLoading={isLoading === 'finish'}
+      />
+    </>
   );
 }
 
@@ -363,6 +412,7 @@ function getStepBgClass(step: CircuitStep): string {
     agendamento: 'bg-step-agendamento',
     cardiologista: 'bg-step-cardio',
     exame_imagem: 'bg-step-imagem',
+    especialista: 'bg-step-especialista',
   };
   return classes[step];
 }
