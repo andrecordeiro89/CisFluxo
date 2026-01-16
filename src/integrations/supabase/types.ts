@@ -74,6 +74,7 @@ export type Database = {
           pending_surgery_scheduling: boolean | null
           registration_number: string | null
           scheduling_pending_at: string | null
+          scheduling_pending_reason: string | null
           specialty: Database["public"]["Enums"]["medical_specialty"]
         }
         Insert: {
@@ -91,6 +92,7 @@ export type Database = {
           pending_surgery_scheduling?: boolean | null
           registration_number?: string | null
           scheduling_pending_at?: string | null
+          scheduling_pending_reason?: string | null
           specialty?: Database["public"]["Enums"]["medical_specialty"]
         }
         Update: {
@@ -108,6 +110,7 @@ export type Database = {
           pending_surgery_scheduling?: boolean | null
           registration_number?: string | null
           scheduling_pending_at?: string | null
+          scheduling_pending_reason?: string | null
           specialty?: Database["public"]["Enums"]["medical_specialty"]
         }
         Relationships: []

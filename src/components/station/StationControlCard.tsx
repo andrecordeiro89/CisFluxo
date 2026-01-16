@@ -249,12 +249,15 @@ export function StationControlCard({ station }: StationControlCardProps) {
     }
   };
 
-  const handleSchedulingConfirm = async (hasScheduledDate: boolean) => {
+  const handleSchedulingConfirm = async (hasScheduledDate: boolean, reason?: string) => {
     setIsLoading('finish');
     try {
-      // If patient doesn't have scheduled date, mark as pending
-      if (!hasScheduledDate && pendingFinishPatient) {
-        await markPendingScheduling.mutateAsync(pendingFinishPatient.id);
+      // If patient doesn't have scheduled date, mark as pending with reason
+      if (!hasScheduledDate && pendingFinishPatient && reason) {
+        await markPendingScheduling.mutateAsync({ 
+          patientId: pendingFinishPatient.id, 
+          reason 
+        });
         toast.info('Paciente adicionado à lista de pendentes de agendamento');
       }
       
