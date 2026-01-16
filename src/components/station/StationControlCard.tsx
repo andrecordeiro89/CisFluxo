@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Station, Patient, CircuitStep, STEP_LABELS, MedicalSpecialty } from '@/types/patient-flow';
+import { Station, Patient, CircuitStep, STEP_LABELS, MedicalSpecialty, DischargeOutcome } from '@/types/patient-flow';
 import { useStationActions } from '@/hooks/useStations';
 import { usePatients, usePatientSteps } from '@/hooks/usePatients';
 import { Button } from '@/components/ui/button';
@@ -8,6 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { Phone, Play, CheckCircle, ImageIcon, User, Clock, Loader2, AlertTriangle, Heart, XCircle } from 'lucide-react';
 import { toast } from 'sonner';
 import { SurgeryIndicationDialog } from './SurgeryIndicationDialog';
+import { DischargeOutcomeDialog } from './DischargeOutcomeDialog';
 import { SpecialtySelector } from './SpecialtySelector';
 
 interface StationControlCardProps {
@@ -27,6 +28,7 @@ export function StationControlCard({ station }: StationControlCardProps) {
   
   // Surgery indication dialog state
   const [showSurgeryDialog, setShowSurgeryDialog] = useState(false);
+  const [showDischargeDialog, setShowDischargeDialog] = useState(false);
   const [pendingFinishPatient, setPendingFinishPatient] = useState<Patient | null>(null);
 
   const currentPatient = patients.find((p) => p.id === station.current_patient_id);
@@ -158,23 +160,46 @@ export function StationControlCard({ station }: StationControlCardProps) {
   };
 
   const handleSurgeryIndication = async (hasSurgeryIndication: boolean) => {
+    if (hasSurgeryIndication) {
+      // Has surgery indication - add to pre-op circuit
+      setIsLoading('finish');
+      try {
+        await finishService.mutateAsync();
+        if (pendingFinishPatient) {
+          await addToPreopCircuit.mutateAsync(pendingFinishPatient.id);
+          toast.success('Paciente incluído no circuito pré-operatório!');
+        }
+      } catch (error: any) {
+        toast.error(error.message || 'Erro ao finalizar atendimento');
+      } finally {
+        setIsLoading(null);
+        setShowSurgeryDialog(false);
+        setPendingFinishPatient(null);
+      }
+    } else {
+      // No surgery indication - show discharge outcome dialog
+      setShowSurgeryDialog(false);
+      setShowDischargeDialog(true);
+    }
+  };
+
+  const handleDischargeOutcome = async (outcome: DischargeOutcome) => {
     setIsLoading('finish');
     try {
-      // First, finish the specialist service
       await finishService.mutateAsync();
-
-      // If has surgery indication, add to pre-op circuit
-      if (hasSurgeryIndication && pendingFinishPatient) {
-        await addToPreopCircuit.mutateAsync(pendingFinishPatient.id);
-        toast.success('Paciente incluído no circuito pré-operatório!');
-      } else {
-        toast.success('Atendimento finalizado!');
-      }
+      
+      const outcomeMessages: Record<DischargeOutcome, string> = {
+        ALTA: 'Paciente liberado com alta',
+        EXAMES_COMPLEMENTARES: 'Paciente encaminhado para exames complementares',
+        ACOMPANHAMENTO_AMBULATORIAL: 'Paciente encaminhado para acompanhamento ambulatorial',
+      };
+      
+      toast.success(outcomeMessages[outcome]);
     } catch (error: any) {
       toast.error(error.message || 'Erro ao finalizar atendimento');
     } finally {
       setIsLoading(null);
-      setShowSurgeryDialog(false);
+      setShowDischargeDialog(false);
       setPendingFinishPatient(null);
     }
   };
@@ -418,6 +443,14 @@ export function StationControlCard({ station }: StationControlCardProps) {
         open={showSurgeryDialog}
         patientName={pendingFinishPatient?.name || ''}
         onConfirm={handleSurgeryIndication}
+        isLoading={isLoading === 'finish'}
+      />
+
+      {/* Discharge Outcome Dialog */}
+      <DischargeOutcomeDialog
+        open={showDischargeDialog}
+        patientName={pendingFinishPatient?.name || ''}
+        onConfirm={handleDischargeOutcome}
         isLoading={isLoading === 'finish'}
       />
     </>

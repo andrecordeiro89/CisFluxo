@@ -2,6 +2,7 @@ import { usePatients, usePatientSteps } from '@/hooks/usePatients';
 import { STEP_LABELS, STATUS_LABELS, Patient, PatientStep, CircuitStep } from '@/types/patient-flow';
 import { User, Clock, CheckCircle2, AlertCircle, AlertTriangle } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
+import { QueueFilterOption } from './QueueFilter';
 
 function getPatientProgress(steps: PatientStep[]) {
   const completed = steps.filter((s) => s.status === 'completed').length;
@@ -92,7 +93,11 @@ function PatientCard({ patient, steps }: PatientCardProps) {
   );
 }
 
-export function PatientList() {
+interface PatientListProps {
+  filter: QueueFilterOption;
+}
+
+export function PatientList({ filter }: PatientListProps) {
   const { patients, isLoading } = usePatients();
   const { steps } = usePatientSteps();
 
@@ -113,28 +118,45 @@ export function PatientList() {
     return steps.filter((s) => s.patient_id === patientId);
   };
 
+  // Filter patients based on selected step filter
+  const filteredPatients = filter === 'all' 
+    ? patients 
+    : patients.filter(patient => {
+        const patientSteps = getPatientSteps(patient.id);
+        // Show patient if they have a pending or in_progress step for the selected filter
+        return patientSteps.some(s => s.step === filter && (s.status === 'pending' || s.status === 'in_progress' || s.status === 'called'));
+      });
+
   // Sort patients by priority first, then by created_at
-  const sortedPatients = [...patients].sort((a, b) => {
+  const sortedPatients = [...filteredPatients].sort((a, b) => {
     if (a.is_priority !== b.is_priority) {
       return a.is_priority ? -1 : 1;
     }
     return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
   });
 
+  const title = filter === 'all' 
+    ? 'Pacientes no Circuito' 
+    : `Pacientes: ${STEP_LABELS[filter]}`;
+
   return (
     <div className="card-elevated p-6 animate-fade-in">
       <div className="flex items-center justify-between mb-6">
-        <h2 className="text-xl font-display font-semibold">Pacientes no Circuito</h2>
+        <h2 className="text-xl font-display font-semibold">{title}</h2>
         <Badge variant="outline" className="text-base px-3 py-1">
-          {patients.length}
+          {sortedPatients.length}
         </Badge>
       </div>
 
-      {patients.length === 0 ? (
+      {sortedPatients.length === 0 ? (
         <div className="text-center py-12">
           <AlertCircle className="h-12 w-12 text-muted-foreground/50 mx-auto mb-4" />
-          <p className="text-muted-foreground">Nenhum paciente no circuito</p>
-          <p className="text-sm text-muted-foreground/70">Cadastre um paciente para começar</p>
+          <p className="text-muted-foreground">
+            {filter === 'all' ? 'Nenhum paciente no circuito' : `Nenhum paciente aguardando nesta etapa`}
+          </p>
+          <p className="text-sm text-muted-foreground/70">
+            {filter === 'all' ? 'Cadastre um paciente para começar' : 'Selecione outra etapa ou visualize todas'}
+          </p>
         </div>
       ) : (
         <div className="space-y-3 max-h-[600px] overflow-y-auto pr-2">

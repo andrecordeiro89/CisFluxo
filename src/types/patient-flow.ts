@@ -6,6 +6,8 @@ export type FlowType = 'consulta_especialista' | 'circuito_preop';
 
 export type MedicalSpecialty = 'ORTOPEDIA' | 'OTORRINO' | 'OFTALMO' | 'TRAUMA' | 'GERAL' | 'UROLOGIA' | 'GINECOLOGIA' | 'OUTROS';
 
+export type DischargeOutcome = 'ALTA' | 'EXAMES_COMPLEMENTARES' | 'ACOMPANHAMENTO_AMBULATORIAL';
+
 export const SPECIALTY_LABELS: Record<MedicalSpecialty, string> = {
   ORTOPEDIA: 'Ortopedia',
   OTORRINO: 'Otorrino',
@@ -15,6 +17,12 @@ export const SPECIALTY_LABELS: Record<MedicalSpecialty, string> = {
   UROLOGIA: 'Urologia',
   GINECOLOGIA: 'Ginecologia',
   OUTROS: 'Outros',
+};
+
+export const DISCHARGE_OUTCOME_LABELS: Record<DischargeOutcome, string> = {
+  ALTA: 'Alta',
+  EXAMES_COMPLEMENTARES: 'Solicitação de Exames Complementares',
+  ACOMPANHAMENTO_AMBULATORIAL: 'Acompanhamento Ambulatorial na Origem',
 };
 
 export const FLOW_TYPE_LABELS: Record<FlowType, string> = {

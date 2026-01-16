@@ -70,19 +70,31 @@ export function useStationActions(station: Station) {
         throw new Error(`Esta estação já está com ${currentCount} paciente(s) em atendimento`);
       }
 
-      // Get next pending patient for this step (excluding those being served elsewhere)
-      const { data: nextStep, error: stepError } = await supabase
+      // For specialist stations, filter by specialty
+      let query = supabase
         .from('patient_steps')
         .select('*, patients!inner(*)')
         .eq('step', station.step)
         .eq('status', 'pending')
         .eq('patients.is_completed', false)
-        .eq('patients.is_being_served', false)
+        .eq('patients.is_being_served', false);
+
+      // If this is a specialist station with a specialty set, filter by it
+      if (station.step === 'especialista' && station.current_specialty) {
+        query = query.eq('patients.specialty', station.current_specialty);
+      }
+
+      const { data: nextStep, error: stepError } = await query
         .order('created_at', { ascending: true })
         .limit(20);
 
       if (stepError) throw stepError;
-      if (!nextStep || nextStep.length === 0) throw new Error('Não há pacientes aguardando para esta etapa');
+      if (!nextStep || nextStep.length === 0) {
+        if (station.step === 'especialista' && station.current_specialty) {
+          throw new Error(`Não há pacientes aguardando para ${station.current_specialty}`);
+        }
+        throw new Error('Não há pacientes aguardando para esta etapa');
+      }
 
       // Separate priority and non-priority patients
       const priorityPatients = nextStep.filter((s: any) => s.patients.is_priority);

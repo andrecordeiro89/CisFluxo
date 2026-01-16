@@ -1,9 +1,11 @@
+import { useState } from 'react';
 import { PatientRegistrationForm } from '@/components/flow-controller/PatientRegistrationForm';
 import { QueueOverview } from '@/components/flow-controller/QueueOverview';
 import { PatientList } from '@/components/flow-controller/PatientList';
 import { DatePicker } from '@/components/flow-controller/DatePicker';
 import { ReportsDialog } from '@/components/flow-controller/ReportsDialog';
 import { PatientStepsManager } from '@/components/flow-controller/PatientStepsManager';
+import { QueueFilter, QueueFilterOption } from '@/components/flow-controller/QueueFilter';
 import { Activity } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -11,6 +13,7 @@ import { useSelectedDate } from '@/contexts/DateContext';
 
 const FlowController = () => {
   const { isToday } = useSelectedDate();
+  const [queueFilter, setQueueFilter] = useState<QueueFilterOption>('all');
 
   return (
     <div className="min-h-screen bg-background">
@@ -38,7 +41,10 @@ const FlowController = () => {
 
         {/* Date picker and actions bar */}
         <div className="container mx-auto px-4 py-3 border-t bg-muted/30 flex items-center justify-between flex-wrap gap-4">
-          <DatePicker />
+          <div className="flex items-center gap-4 flex-wrap">
+            <DatePicker />
+            <QueueFilter selectedFilter={queueFilter} onFilterChange={setQueueFilter} />
+          </div>
           <div className="flex items-center gap-2">
             <PatientStepsManager />
             <ReportsDialog />
@@ -70,12 +76,12 @@ const FlowController = () => {
 
           {/* Middle column - Queue Overview */}
           <div className="lg:col-span-1">
-            <QueueOverview />
+            <QueueOverview filter={queueFilter} />
           </div>
 
           {/* Right column - Patient List */}
           <div className="lg:col-span-1">
-            <PatientList />
+            <PatientList filter={queueFilter} />
           </div>
         </div>
       </main>
