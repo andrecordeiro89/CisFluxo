@@ -33,7 +33,7 @@ const patientSchema = z.object({
       message: 'Digite nome e sobrenome (mínimo 2 palavras)',
     }),
   registration_number: z.string().optional(),
-  specialty: z.enum(['ORTOPEDIA', 'OTORRINO', 'OFTALMO', 'TRAUMA', 'GERAL', 'UROLOGIA', 'GINECOLOGIA', 'CARDIOLOGIA', 'OUTROS']),
+  specialty: z.enum(['ORTOPEDIA', 'OTORRINO', 'OFTALMO', 'TRAUMA', 'GERAL', 'UROLOGIA', 'GINECOLOGIA', 'OUTROS']),
   flow_type: z.enum(['consulta_especialista', 'consulta_retorno', 'circuito_preop']),
   needs_cardio: z.boolean().default(false),
   needs_image_exam: z.boolean().default(false),
