@@ -1,5 +1,5 @@
 import { usePatients, usePatientSteps } from '@/hooks/usePatients';
-import { STEP_LABELS, STATUS_LABELS, Patient, PatientStep, CircuitStep } from '@/types/patient-flow';
+import { STEP_LABELS, SPECIALTY_LABELS, STATUS_LABELS, Patient, PatientStep, CircuitStep } from '@/types/patient-flow';
 import { User, Clock, CheckCircle2, AlertCircle, AlertTriangle } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { QueueFilterOption } from './QueueFilter';
@@ -18,6 +18,22 @@ interface PatientCardProps {
 function PatientCard({ patient, steps }: PatientCardProps) {
   const progress = getPatientProgress(steps);
   const inProgressStep = steps.find((s) => s.status === 'in_progress' || s.status === 'called');
+
+  // Get display label for step - show specialty for specialist step
+  const getStepDisplayLabel = (step: CircuitStep) => {
+    if (step === 'especialista') {
+      return `Consulta ${SPECIALTY_LABELS[patient.specialty]}`;
+    }
+    return STEP_LABELS[step];
+  };
+
+  // Get short label for badge
+  const getShortStepLabel = (step: CircuitStep) => {
+    if (step === 'especialista') {
+      return SPECIALTY_LABELS[patient.specialty];
+    }
+    return STEP_LABELS[step].split(' ')[0];
+  };
 
   return (
     <div className={`p-4 rounded-lg border bg-card hover:shadow-md transition-all animate-slide-in ${patient.is_priority ? 'border-amber-500/50 bg-amber-500/5' : ''}`}>
@@ -66,7 +82,7 @@ function PatientCard({ patient, steps }: PatientCardProps) {
         <div className="flex items-center gap-2 text-sm">
           <Clock className="h-4 w-4 text-status-in-progress" />
           <span className="text-muted-foreground">Em:</span>
-          <Badge variant="secondary">{STEP_LABELS[inProgressStep.step]}</Badge>
+          <Badge variant="secondary">{getStepDisplayLabel(inProgressStep.step)}</Badge>
         </div>
       )}
 
@@ -85,7 +101,7 @@ function PatientCard({ patient, steps }: PatientCardProps) {
           >
             {step.status === 'completed' && <CheckCircle2 className="h-3 w-3" />}
             {(step.status === 'in_progress' || step.status === 'called') && <Clock className="h-3 w-3" />}
-            {STEP_LABELS[step.step].split(' ')[0]}
+            {getShortStepLabel(step.step)}
           </span>
         ))}
       </div>
