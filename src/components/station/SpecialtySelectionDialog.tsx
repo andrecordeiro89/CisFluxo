@@ -24,6 +24,7 @@ const SPECIALTIES: MedicalSpecialty[] = [
   'GERAL',
   'UROLOGIA',
   'GINECOLOGIA',
+  'CARDIOLOGIA',
   'OUTROS',
 ];
 

@@ -79,8 +79,10 @@ export function usePatients() {
       const steps: { patient_id: string; step: CircuitStep }[] = [];
 
       if (data.flow_type === 'consulta_especialista') {
-        // Patient goes to specialist first
         steps.push({ patient_id: patient.id, step: 'especialista' });
+        if (data.specialty === 'CARDIOLOGIA') {
+          steps.push({ patient_id: patient.id, step: 'exames_lab_ecg' });
+        }
       } else {
         // Patient goes directly to pre-operative circuit
         steps.push({ patient_id: patient.id, step: 'triagem_medica' });

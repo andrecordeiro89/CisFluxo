@@ -96,15 +96,46 @@ export function useStationActions(station: Station) {
         throw new Error('Não há pacientes aguardando para esta etapa');
       }
 
-      // Separate priority and non-priority patients
-      const priorityPatients = nextStep.filter((s: any) => s.patients.is_priority);
-      const normalPatients = nextStep.filter((s: any) => !s.patients.is_priority);
+      let candidates = nextStep;
+
+      if (
+        station.step === 'cardiologista' ||
+        (station.step === 'especialista' && station.current_specialty === 'CARDIOLOGIA')
+      ) {
+        const ids = candidates.map((s: any) => s.patients.id);
+        const { data: ecgDone } = await supabase
+          .from('patient_steps')
+          .select('patient_id')
+          .eq('step', 'exames_lab_ecg')
+          .eq('status', 'completed')
+          .in('patient_id', ids);
+        const allowed = new Set((ecgDone || []).map((r: any) => r.patient_id));
+        candidates = candidates.filter((s: any) => allowed.has(s.patients.id));
+        if (!candidates || candidates.length === 0) {
+          throw new Error('Não há pacientes com ECG concluído aguardando cardiologista');
+        }
+      }
 
       let selectedStep;
 
+      if (station.step === 'exames_lab_ecg') {
+        const ecgPriority = candidates.filter((s: any) => s.patients.specialty === 'CARDIOLOGIA' || s.patients.needs_cardio === true);
+        if (ecgPriority.length > 0) {
+          const sorted = [...ecgPriority].sort((a: any, b: any) => {
+            if (a.patients.is_priority !== b.patients.is_priority) {
+              return a.patients.is_priority ? -1 : 1;
+            }
+            return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+          });
+          selectedStep = sorted[0];
+        }
+      }
+
       // Weighted priority selection: 75% priority, 25% normal
       // After 3 priority patients, call 1 normal patient (if available)
-      if (priorityPatients.length > 0 && normalPatients.length > 0) {
+      if (!selectedStep) {
+        const priorityPatients = candidates.filter((s: any) => s.patients.is_priority);
+        const normalPatients = candidates.filter((s: any) => !s.patients.is_priority);
         // Use weighted selection
         if (priorityCallCount >= 3 && normalPatients.length > 0) {
           // Call a normal patient after 3 priority calls
@@ -120,13 +151,6 @@ export function useStationActions(station: Station) {
           selectedStep = normalPatients[0];
           lastCallWasPriority = false;
         }
-      } else if (priorityPatients.length > 0) {
-        selectedStep = priorityPatients[0];
-        lastCallWasPriority = true;
-      } else {
-        selectedStep = normalPatients[0];
-        priorityCallCount = 0;
-        lastCallWasPriority = false;
       }
 
       const patient = (selectedStep as any).patients as Patient;
@@ -373,6 +397,21 @@ export function useStationActions(station: Station) {
       });
 
       if (error) throw error;
+
+      // Ensure ECG step exists as prerequisite
+      const { data: ecgExisting } = await supabase
+        .from('patient_steps')
+        .select('id')
+        .eq('patient_id', patientId)
+        .eq('step', 'exames_lab_ecg')
+        .maybeSingle();
+      if (!ecgExisting) {
+        const { error: ecgError } = await supabase.from('patient_steps').insert({
+          patient_id: patientId,
+          step: 'exames_lab_ecg',
+        });
+        if (ecgError) throw ecgError;
+      }
 
       // Update patient flag
       await supabase

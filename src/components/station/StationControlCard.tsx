@@ -7,9 +7,6 @@ import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Phone, Play, CheckCircle, ImageIcon, User, Clock, Loader2, AlertTriangle, Heart, XCircle, LogOut } from 'lucide-react';
 import { toast } from 'sonner';
-import { SurgeryIndicationDialog } from './SurgeryIndicationDialog';
-import { DischargeOutcomeDialog } from './DischargeOutcomeDialog';
-import { CardioRequirementDialog } from './CardioRequirementDialog';
 import { SchedulingConfirmDialog } from './SchedulingConfirmDialog';
 import { SpecialtySelector } from './SpecialtySelector';
 
@@ -28,10 +25,6 @@ export function StationControlCard({ station }: StationControlCardProps) {
   const autoCancelTimerRef = useRef<NodeJS.Timeout | null>(null);
   const countdownRef = useRef<NodeJS.Timeout | null>(null);
   
-  // Surgery indication dialog state
-  const [showSurgeryDialog, setShowSurgeryDialog] = useState(false);
-  const [showDischargeDialog, setShowDischargeDialog] = useState(false);
-  const [showCardioDialog, setShowCardioDialog] = useState(false);
   const [showSchedulingDialog, setShowSchedulingDialog] = useState(false);
   const [pendingFinishPatient, setPendingFinishPatient] = useState<Patient | null>(null);
 
@@ -148,13 +141,6 @@ export function StationControlCard({ station }: StationControlCardProps) {
   };
 
   const handleFinish = async () => {
-    // For specialist station, show surgery indication dialog
-    if (station.step === 'especialista' && currentPatient) {
-      setPendingFinishPatient(currentPatient);
-      setShowSurgeryDialog(true);
-      return;
-    }
-
     // For scheduling station, show scheduling confirmation dialog
     if (station.step === 'agendamento' && currentPatient) {
       setPendingFinishPatient(currentPatient);
@@ -170,82 +156,13 @@ export function StationControlCard({ station }: StationControlCardProps) {
     setIsLoading('finish');
     try {
       await finishService.mutateAsync();
-      toast.success('Atendimento finalizado!');
-    } catch (error: any) {
-      toast.error(error.message || 'Erro ao finalizar atendimento');
-    } finally {
-      setIsLoading(null);
-    }
-  };
-
-  const handleSurgeryIndication = async (hasSurgeryIndication: boolean) => {
-    if (hasSurgeryIndication) {
-      // Has surgery indication - check if ORTOPEDIA to show cardio dialog
-      const isOrtopedia = station.current_specialty === 'ORTOPEDIA';
-      
-      if (isOrtopedia) {
-        // For ORTOPEDIA, ask about cardio requirement
-        setShowSurgeryDialog(false);
-        setShowCardioDialog(true);
-      } else {
-        // For other specialties, go directly to preop circuit without cardio question
-        setShowSurgeryDialog(false);
-        setIsLoading('finish');
-        try {
-          await finishService.mutateAsync();
-          if (pendingFinishPatient) {
-            await addToPreopCircuit.mutateAsync({ patientId: pendingFinishPatient.id, needsCardio: false });
-            toast.success('Paciente incluído no circuito pré-operatório!');
-          }
-        } catch (error: any) {
-          toast.error(error.message || 'Erro ao finalizar atendimento');
-        } finally {
-          setIsLoading(null);
-          setPendingFinishPatient(null);
-        }
-      }
-    } else {
-      // No surgery indication - show discharge outcome dialog
-      setShowSurgeryDialog(false);
-      setShowDischargeDialog(true);
-    }
-  };
-
-  const handleCardioRequirement = async (needsCardio: boolean) => {
-    setIsLoading('finish');
-    try {
-      await finishService.mutateAsync();
-      if (pendingFinishPatient) {
-        await addToPreopCircuit.mutateAsync({ patientId: pendingFinishPatient.id, needsCardio });
-        toast.success('Paciente incluído no circuito pré-operatório!');
+      if (station.step !== 'especialista') {
+        toast.success('Atendimento finalizado!');
       }
     } catch (error: any) {
       toast.error(error.message || 'Erro ao finalizar atendimento');
     } finally {
       setIsLoading(null);
-      setShowCardioDialog(false);
-      setPendingFinishPatient(null);
-    }
-  };
-
-  const handleDischargeOutcome = async (outcome: DischargeOutcome) => {
-    setIsLoading('finish');
-    try {
-      await finishService.mutateAsync();
-      
-      const outcomeMessages: Record<DischargeOutcome, string> = {
-        ALTA: 'Paciente liberado com alta',
-        EXAMES_COMPLEMENTARES: 'Paciente encaminhado para exames complementares',
-        ACOMPANHAMENTO_AMBULATORIAL: 'Paciente encaminhado para acompanhamento ambulatorial',
-      };
-      
-      toast.success(outcomeMessages[outcome]);
-    } catch (error: any) {
-      toast.error(error.message || 'Erro ao finalizar atendimento');
-    } finally {
-      setIsLoading(null);
-      setShowDischargeDialog(false);
-      setPendingFinishPatient(null);
     }
   };
 
@@ -539,35 +456,30 @@ export function StationControlCard({ station }: StationControlCardProps) {
                     )}
                   </div>
                 )}
+                {station.step === 'especialista' && station.current_specialty === 'ORTOPEDIA' && currentPatient && (
+                  <div className="flex gap-2 mt-2">
+                    {!currentPatient.needs_cardio && (
+                      <Button
+                        variant="outline"
+                        className="flex-1 h-11"
+                        onClick={handleAddCardio}
+                        disabled={isLoading === 'cardio'}
+                      >
+                        {isLoading === 'cardio' ? (
+                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                        ) : (
+                          <Heart className="h-4 w-4 mr-2" />
+                        )}
+                        Adicionar Cardiologista
+                      </Button>
+                    )}
+                  </div>
+                )}
               </>
             )}
           </div>
         </div>
       </Card>
-
-      {/* Surgery Indication Dialog */}
-      <SurgeryIndicationDialog
-        open={showSurgeryDialog}
-        patientName={pendingFinishPatient?.name || ''}
-        onConfirm={handleSurgeryIndication}
-        isLoading={isLoading === 'finish'}
-      />
-
-      {/* Discharge Outcome Dialog */}
-      <DischargeOutcomeDialog
-        open={showDischargeDialog}
-        patientName={pendingFinishPatient?.name || ''}
-        onConfirm={handleDischargeOutcome}
-        isLoading={isLoading === 'finish'}
-      />
-
-      {/* Cardio Requirement Dialog */}
-      <CardioRequirementDialog
-        open={showCardioDialog}
-        patientName={pendingFinishPatient?.name || ''}
-        onConfirm={handleCardioRequirement}
-        isLoading={isLoading === 'finish'}
-      />
 
       {/* Scheduling Confirm Dialog */}
       <SchedulingConfirmDialog

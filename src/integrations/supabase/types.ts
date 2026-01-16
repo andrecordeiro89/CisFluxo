@@ -223,6 +223,7 @@ export type Database = {
         | "GERAL"
         | "UROLOGIA"
         | "GINECOLOGIA"
+        | "CARDIOLOGIA"
         | "OUTROS"
       patient_step_status: "pending" | "called" | "in_progress" | "completed"
     }
@@ -368,6 +369,7 @@ export const Constants = {
         "GERAL",
         "UROLOGIA",
         "GINECOLOGIA",
+        "CARDIOLOGIA",
         "OUTROS",
       ],
       patient_step_status: ["pending", "called", "in_progress", "completed"],

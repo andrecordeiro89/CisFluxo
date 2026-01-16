@@ -4,7 +4,7 @@ export type CircuitStep = 'triagem_medica' | 'exames_lab_ecg' | 'agendamento' | 
 
 export type FlowType = 'consulta_especialista' | 'consulta_retorno' | 'circuito_preop';
 
-export type MedicalSpecialty = 'ORTOPEDIA' | 'OTORRINO' | 'OFTALMO' | 'TRAUMA' | 'GERAL' | 'UROLOGIA' | 'GINECOLOGIA' | 'OUTROS';
+export type MedicalSpecialty = 'ORTOPEDIA' | 'OTORRINO' | 'OFTALMO' | 'TRAUMA' | 'GERAL' | 'UROLOGIA' | 'GINECOLOGIA' | 'CARDIOLOGIA' | 'OUTROS';
 
 export type DischargeOutcome = 'ALTA' | 'EXAMES_COMPLEMENTARES' | 'ACOMPANHAMENTO_AMBULATORIAL';
 
@@ -16,6 +16,7 @@ export const SPECIALTY_LABELS: Record<MedicalSpecialty, string> = {
   GERAL: 'Geral',
   UROLOGIA: 'Urologia',
   GINECOLOGIA: 'Ginecologia',
+  CARDIOLOGIA: 'Cardiologia',
   OUTROS: 'Outros',
 };
 
