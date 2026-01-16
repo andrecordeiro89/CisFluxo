@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { CircuitStep, MedicalSpecialty } from '@/types/patient-flow';
+import { CircuitStep, MedicalSpecialty, FlowType, FLOW_TYPE_LABELS } from '@/types/patient-flow';
 import { differenceInMinutes } from 'date-fns';
 
 export interface StepReport {
@@ -18,6 +18,13 @@ export interface SpecialtyReport {
   conversionRate: number;
 }
 
+export interface FlowTypeReport {
+  flowType: FlowType;
+  label: string;
+  total: number;
+  completed: number;
+}
+
 export interface PendingSchedulingPatient {
   id: string;
   name: string;
@@ -32,6 +39,7 @@ export interface DayReport {
   completedPatients: number;
   stepReports: StepReport[];
   specialtyReports: SpecialtyReport[];
+  flowTypeReports: FlowTypeReport[];
   totalSurgicalIndications: number;
   overallConversionRate: number;
   pendingSchedulingPatients: PendingSchedulingPatient[];
@@ -104,6 +112,19 @@ export function useReports(startDate: Date, endDate: Date) {
         };
       }).filter(r => r.totalConsultations > 0); // Only show specialties with consultations
 
+      // Calculate flow type reports
+      const allFlowTypes: FlowType[] = ['consulta_especialista', 'consulta_retorno', 'circuito_preop'];
+      
+      const flowTypeReports: FlowTypeReport[] = allFlowTypes.map((flowType) => {
+        const flowPatients = patients?.filter((p) => p.flow_type === flowType) || [];
+        return {
+          flowType,
+          label: FLOW_TYPE_LABELS[flowType],
+          total: flowPatients.length,
+          completed: flowPatients.filter((p) => p.is_completed).length,
+        };
+      }).filter(r => r.total > 0); // Only show flow types with patients
+
       const totalSurgicalIndications = patients?.filter((p) => p.has_surgery_indication === true).length || 0;
       const totalConsultations = patients?.length || 0;
       const overallConversionRate = totalConsultations > 0 
@@ -127,6 +148,7 @@ export function useReports(startDate: Date, endDate: Date) {
         completedPatients: patients?.filter((p) => p.is_completed).length || 0,
         stepReports,
         specialtyReports,
+        flowTypeReports,
         totalSurgicalIndications,
         overallConversionRate,
         pendingSchedulingPatients,

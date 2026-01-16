@@ -1,10 +1,10 @@
 import { useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { BarChart3, Clock, Users, CheckCircle, AlertTriangle, Stethoscope, TrendingUp, Download, FileCode, CalendarX } from 'lucide-react';
+import { BarChart3, Clock, Users, CheckCircle, AlertTriangle, Stethoscope, TrendingUp, Download, FileCode, CalendarX, RotateCcw, Activity } from 'lucide-react';
 import { useSelectedDate } from '@/contexts/DateContext';
-import { useReports, StepReport, SpecialtyReport, DayReport, PendingSchedulingPatient } from '@/hooks/useReports';
-import { STEP_LABELS, SPECIALTY_LABELS, CircuitStep, MedicalSpecialty } from '@/types/patient-flow';
+import { useReports, StepReport, SpecialtyReport, DayReport, PendingSchedulingPatient, FlowTypeReport } from '@/hooks/useReports';
+import { STEP_LABELS, SPECIALTY_LABELS, CircuitStep, MedicalSpecialty, FlowType, FLOW_TYPE_LABELS } from '@/types/patient-flow';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { Progress } from '@/components/ui/progress';
@@ -106,6 +106,52 @@ function SpecialtyReportCard({ report }: { report: SpecialtyReport }) {
   );
 }
 
+const flowTypeIcons: Record<FlowType, React.ReactNode> = {
+  consulta_especialista: <Stethoscope className="h-5 w-5 text-step-especialista" />,
+  consulta_retorno: <RotateCcw className="h-5 w-5 text-blue-500" />,
+  circuito_preop: <Activity className="h-5 w-5 text-primary" />,
+};
+
+function FlowTypeReportCard({ report }: { report: FlowTypeReport }) {
+  const completionRate = report.total > 0 ? Math.round((report.completed / report.total) * 100) : 0;
+
+  return (
+    <div className="p-4 rounded-lg border bg-card">
+      <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center gap-2">
+          {flowTypeIcons[report.flowType]}
+          <span className="font-medium">{report.label}</span>
+        </div>
+        <div className="flex items-center gap-1 text-primary text-sm font-semibold">
+          <TrendingUp className="h-4 w-4" />
+          <span>{completionRate}%</span>
+        </div>
+      </div>
+      
+      <div className="grid grid-cols-3 gap-3 text-sm">
+        <div>
+          <p className="text-muted-foreground">Total</p>
+          <p className="font-semibold text-lg">{report.total}</p>
+        </div>
+        <div>
+          <p className="text-muted-foreground">Finalizados</p>
+          <p className="font-semibold text-lg text-status-completed">{report.completed}</p>
+        </div>
+        <div>
+          <p className="text-muted-foreground">Taxa de Conclusão</p>
+          <p className="font-semibold text-lg">{completionRate}%</p>
+        </div>
+      </div>
+
+      {report.total > 0 && (
+        <div className="mt-3">
+          <Progress value={completionRate} className="h-2" />
+        </div>
+      )}
+    </div>
+  );
+}
+
 function generateXMLReport(report: DayReport, selectedDate: Date): string {
   const dateStr = format(selectedDate, 'yyyy-MM-dd');
   const dateDisplay = format(selectedDate, "dd 'de' MMMM, yyyy", { locale: ptBR });
@@ -148,6 +194,21 @@ function generateXMLReport(report: DayReport, selectedDate: Date): string {
 
   xml += `
   </consultasPorEspecialidade>
+  
+  <atendimentosPorTipo>`;
+
+  report.flowTypeReports.forEach(flowType => {
+    const completionRate = flowType.total > 0 ? Math.round((flowType.completed / flowType.total) * 100) : 0;
+    xml += `
+    <tipoAtendimento nome="${flowType.label}">
+      <total>${flowType.total}</total>
+      <finalizados>${flowType.completed}</finalizados>
+      <taxaConclusao>${completionRate}%</taxaConclusao>
+    </tipoAtendimento>`;
+  });
+
+  xml += `
+  </atendimentosPorTipo>
   
   <pacientesPendentesAgendamento>`;
 
@@ -277,6 +338,21 @@ export function ReportsDialog() {
                 <div className="space-y-3">
                   {report.specialtyReports.map((specialtyReport) => (
                     <SpecialtyReportCard key={specialtyReport.specialty} report={specialtyReport} />
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Flow Type reports */}
+            {report.flowTypeReports && report.flowTypeReports.length > 0 && (
+              <div>
+                <h3 className="font-semibold mb-4 flex items-center gap-2">
+                  <Activity className="h-4 w-4" />
+                  Atendimentos por Tipo
+                </h3>
+                <div className="space-y-3">
+                  {report.flowTypeReports.map((flowTypeReport) => (
+                    <FlowTypeReportCard key={flowTypeReport.flowType} report={flowTypeReport} />
                   ))}
                 </div>
               </div>

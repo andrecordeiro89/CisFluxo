@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { UserPlus, Heart, Image as ImageIcon, AlertTriangle, Stethoscope, Activity } from 'lucide-react';
+import { UserPlus, Heart, Image as ImageIcon, AlertTriangle, Stethoscope, Activity, RotateCcw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -33,7 +33,7 @@ const patientSchema = z.object({
     }),
   registration_number: z.string().optional(),
   specialty: z.enum(['ORTOPEDIA', 'OTORRINO', 'OFTALMO', 'TRAUMA', 'GERAL', 'UROLOGIA', 'GINECOLOGIA', 'OUTROS']),
-  flow_type: z.enum(['consulta_especialista', 'circuito_preop']),
+  flow_type: z.enum(['consulta_especialista', 'consulta_retorno', 'circuito_preop']),
   needs_cardio: z.boolean().default(false),
   needs_image_exam: z.boolean().default(false),
   is_priority: z.boolean().default(false),
@@ -178,6 +178,22 @@ export function PatientRegistrationForm() {
                         </div>
                         <p className="text-sm text-muted-foreground mt-1">
                           Paciente será encaminhado primeiro para consulta com especialista
+                        </p>
+                      </div>
+                    </FormItem>
+                    <FormItem className="flex items-start gap-3 p-4 rounded-lg border bg-card hover:bg-accent/50 transition-colors">
+                      <FormControl>
+                        <RadioGroupItem value="consulta_retorno" className="mt-0.5" />
+                      </FormControl>
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2">
+                          <RotateCcw className="h-5 w-5 text-blue-500" />
+                          <FormLabel className="cursor-pointer font-medium m-0">
+                            {FLOW_TYPE_LABELS.consulta_retorno}
+                          </FormLabel>
+                        </div>
+                        <p className="text-sm text-muted-foreground mt-1">
+                          Paciente em retorno para acompanhamento com especialista
                         </p>
                       </div>
                     </FormItem>

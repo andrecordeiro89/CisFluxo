@@ -2,7 +2,7 @@ export type PatientStepStatus = 'pending' | 'called' | 'in_progress' | 'complete
 
 export type CircuitStep = 'triagem_medica' | 'exames_lab_ecg' | 'agendamento' | 'cardiologista' | 'exame_imagem' | 'especialista';
 
-export type FlowType = 'consulta_especialista' | 'circuito_preop';
+export type FlowType = 'consulta_especialista' | 'consulta_retorno' | 'circuito_preop';
 
 export type MedicalSpecialty = 'ORTOPEDIA' | 'OTORRINO' | 'OFTALMO' | 'TRAUMA' | 'GERAL' | 'UROLOGIA' | 'GINECOLOGIA' | 'OUTROS';
 
@@ -27,6 +27,7 @@ export const DISCHARGE_OUTCOME_LABELS: Record<DischargeOutcome, string> = {
 
 export const FLOW_TYPE_LABELS: Record<FlowType, string> = {
   consulta_especialista: 'Primeira Consulta com Especialista',
+  consulta_retorno: 'Consulta de Retorno',
   circuito_preop: 'Circuito Pré-Operatório',
 };
 
