@@ -5,10 +5,11 @@ import { usePatients, usePatientSteps } from '@/hooks/usePatients';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Phone, Play, CheckCircle, ImageIcon, User, Clock, Loader2, AlertTriangle, Heart, XCircle } from 'lucide-react';
+import { Phone, Play, CheckCircle, ImageIcon, User, Clock, Loader2, AlertTriangle, Heart, XCircle, LogOut } from 'lucide-react';
 import { toast } from 'sonner';
 import { SurgeryIndicationDialog } from './SurgeryIndicationDialog';
 import { DischargeOutcomeDialog } from './DischargeOutcomeDialog';
+import { CardioRequirementDialog } from './CardioRequirementDialog';
 import { SpecialtySelector } from './SpecialtySelector';
 
 interface StationControlCardProps {
@@ -18,7 +19,7 @@ interface StationControlCardProps {
 const AUTO_CANCEL_TIMEOUT_MS = 3 * 60 * 1000; // 3 minutes
 
 export function StationControlCard({ station }: StationControlCardProps) {
-  const { callNextPatient, startService, finishService, cancelCall, addImageExam, addCardioStep, updateStationSpecialty } = useStationActions(station);
+  const { callNextPatient, startService, finishService, cancelCall, addImageExam, addCardioStep, updateStationSpecialty, releaseRoom } = useStationActions(station);
   const { patients, addToPreopCircuit } = usePatients();
   const { steps } = usePatientSteps();
   const [isLoading, setIsLoading] = useState<string | null>(null);
@@ -29,6 +30,7 @@ export function StationControlCard({ station }: StationControlCardProps) {
   // Surgery indication dialog state
   const [showSurgeryDialog, setShowSurgeryDialog] = useState(false);
   const [showDischargeDialog, setShowDischargeDialog] = useState(false);
+  const [showCardioDialog, setShowCardioDialog] = useState(false);
   const [pendingFinishPatient, setPendingFinishPatient] = useState<Patient | null>(null);
 
   const currentPatient = patients.find((p) => p.id === station.current_patient_id);
@@ -161,25 +163,30 @@ export function StationControlCard({ station }: StationControlCardProps) {
 
   const handleSurgeryIndication = async (hasSurgeryIndication: boolean) => {
     if (hasSurgeryIndication) {
-      // Has surgery indication - add to pre-op circuit
-      setIsLoading('finish');
-      try {
-        await finishService.mutateAsync();
-        if (pendingFinishPatient) {
-          await addToPreopCircuit.mutateAsync(pendingFinishPatient.id);
-          toast.success('Paciente incluído no circuito pré-operatório!');
-        }
-      } catch (error: any) {
-        toast.error(error.message || 'Erro ao finalizar atendimento');
-      } finally {
-        setIsLoading(null);
-        setShowSurgeryDialog(false);
-        setPendingFinishPatient(null);
-      }
+      // Has surgery indication - show cardio requirement dialog
+      setShowSurgeryDialog(false);
+      setShowCardioDialog(true);
     } else {
       // No surgery indication - show discharge outcome dialog
       setShowSurgeryDialog(false);
       setShowDischargeDialog(true);
+    }
+  };
+
+  const handleCardioRequirement = async (needsCardio: boolean) => {
+    setIsLoading('finish');
+    try {
+      await finishService.mutateAsync();
+      if (pendingFinishPatient) {
+        await addToPreopCircuit.mutateAsync({ patientId: pendingFinishPatient.id, needsCardio });
+        toast.success('Paciente incluído no circuito pré-operatório!');
+      }
+    } catch (error: any) {
+      toast.error(error.message || 'Erro ao finalizar atendimento');
+    } finally {
+      setIsLoading(null);
+      setShowCardioDialog(false);
+      setPendingFinishPatient(null);
     }
   };
 
@@ -246,6 +253,18 @@ export function StationControlCard({ station }: StationControlCardProps) {
     }
   };
 
+  const handleReleaseRoom = async () => {
+    setIsLoading('release');
+    try {
+      await releaseRoom.mutateAsync();
+      toast.success('Consultório liberado!');
+    } catch (error: any) {
+      toast.error(error.message || 'Erro ao liberar consultório');
+    } finally {
+      setIsLoading(null);
+    }
+  };
+
   const isIdle = !currentPatient;
   const isInProgress = currentStep?.status === 'in_progress';
 
@@ -274,11 +293,28 @@ export function StationControlCard({ station }: StationControlCardProps) {
         <div className="p-5">
           {/* Specialty selector for specialist stations */}
           {station.step === 'especialista' && (
-            <SpecialtySelector
-              currentSpecialty={station.current_specialty}
-              onSpecialtyChange={handleSpecialtyChange}
-              disabled={!!currentPatient}
-            />
+            <div className="mb-4">
+              <SpecialtySelector
+                currentSpecialty={station.current_specialty}
+                onSpecialtyChange={handleSpecialtyChange}
+                disabled={!!currentPatient}
+              />
+              {station.current_specialty && !currentPatient && (
+                <Button
+                  variant="outline"
+                  className="w-full mt-2 h-10 text-orange-600 border-orange-300 hover:bg-orange-50"
+                  onClick={handleReleaseRoom}
+                  disabled={isLoading === 'release'}
+                >
+                  {isLoading === 'release' ? (
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  ) : (
+                    <LogOut className="h-4 w-4 mr-2" />
+                  )}
+                  Liberar Consultório
+                </Button>
+              )}
+            </div>
           )}
 
           {/* Current patient info */}
@@ -451,6 +487,14 @@ export function StationControlCard({ station }: StationControlCardProps) {
         open={showDischargeDialog}
         patientName={pendingFinishPatient?.name || ''}
         onConfirm={handleDischargeOutcome}
+        isLoading={isLoading === 'finish'}
+      />
+
+      {/* Cardio Requirement Dialog */}
+      <CardioRequirementDialog
+        open={showCardioDialog}
+        patientName={pendingFinishPatient?.name || ''}
+        onConfirm={handleCardioRequirement}
         isLoading={isLoading === 'finish'}
       />
     </>
