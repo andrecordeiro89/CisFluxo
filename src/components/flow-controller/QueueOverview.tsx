@@ -1,6 +1,7 @@
 import { useQueueStats } from '@/hooks/useQueueStats';
 import { STEP_LABELS, CircuitStep } from '@/types/patient-flow';
 import { Users, Clock, CheckCircle } from 'lucide-react';
+import { QueueFilterOption } from './QueueFilter';
 
 const stepIcons: Record<CircuitStep, string> = {
   triagem_medica: '🩺',
@@ -11,7 +12,11 @@ const stepIcons: Record<CircuitStep, string> = {
   especialista: '👨‍⚕️',
 };
 
-export function QueueOverview() {
+interface QueueOverviewProps {
+  filter: QueueFilterOption;
+}
+
+export function QueueOverview({ filter }: QueueOverviewProps) {
   const { stats, isLoading } = useQueueStats();
 
   if (isLoading) {
@@ -27,13 +32,22 @@ export function QueueOverview() {
     );
   }
 
-  const totalPending = stats.reduce((acc, s) => acc + s.pending, 0);
-  const totalInProgress = stats.reduce((acc, s) => acc + s.in_progress, 0);
-  const totalCompleted = stats.reduce((acc, s) => acc + s.completed, 0);
+  // Filter stats based on selected filter
+  const filteredStats = filter === 'all' 
+    ? stats 
+    : stats.filter(s => s.step === filter);
+
+  const totalPending = filteredStats.reduce((acc, s) => acc + s.pending, 0);
+  const totalInProgress = filteredStats.reduce((acc, s) => acc + s.in_progress, 0);
+  const totalCompleted = filteredStats.reduce((acc, s) => acc + s.completed, 0);
+
+  const title = filter === 'all' 
+    ? 'Visão Geral do Fluxo' 
+    : `Fila: ${STEP_LABELS[filter]}`;
 
   return (
     <div className="card-elevated p-6 animate-fade-in">
-      <h2 className="text-xl font-display font-semibold mb-6">Visão Geral do Fluxo</h2>
+      <h2 className="text-xl font-display font-semibold mb-6">{title}</h2>
 
       {/* Summary cards */}
       <div className="grid grid-cols-3 gap-4 mb-6">
@@ -62,25 +76,27 @@ export function QueueOverview() {
         </div>
       </div>
 
-      {/* Per-step breakdown */}
-      <div className="space-y-3">
-        {stats.map((stat) => (
-          <div
-            key={stat.step}
-            className="flex items-center gap-4 p-3 rounded-lg border bg-card hover:bg-accent/30 transition-colors"
-          >
-            <span className="text-2xl">{stepIcons[stat.step]}</span>
-            <div className="flex-1 min-w-0">
-              <p className="font-medium truncate">{STEP_LABELS[stat.step]}</p>
+      {/* Per-step breakdown - only show if filter is 'all' */}
+      {filter === 'all' && (
+        <div className="space-y-3">
+          {stats.map((stat) => (
+            <div
+              key={stat.step}
+              className="flex items-center gap-4 p-3 rounded-lg border bg-card hover:bg-accent/30 transition-colors"
+            >
+              <span className="text-2xl">{stepIcons[stat.step]}</span>
+              <div className="flex-1 min-w-0">
+                <p className="font-medium truncate">{STEP_LABELS[stat.step]}</p>
+              </div>
+              <div className="flex items-center gap-3 text-sm">
+                <span className="status-pending min-w-[3rem] text-center">{stat.pending}</span>
+                <span className="status-in-progress min-w-[3rem] text-center">{stat.in_progress}</span>
+                <span className="status-completed min-w-[3rem] text-center">{stat.completed}</span>
+              </div>
             </div>
-            <div className="flex items-center gap-3 text-sm">
-              <span className="status-pending min-w-[3rem] text-center">{stat.pending}</span>
-              <span className="status-in-progress min-w-[3rem] text-center">{stat.in_progress}</span>
-              <span className="status-completed min-w-[3rem] text-center">{stat.completed}</span>
-            </div>
-          </div>
-        ))}
-      </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

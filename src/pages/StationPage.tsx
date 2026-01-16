@@ -1,10 +1,13 @@
-import { useState, useMemo } from 'react';
-import { useStations } from '@/hooks/useStations';
+import { useState, useMemo, useEffect } from 'react';
+import { useStations, useStationActions } from '@/hooks/useStations';
 import { StationControlCard } from '@/components/station/StationControlCard';
-import { CircuitStep, STEP_LABELS, Station } from '@/types/patient-flow';
+import { SpecialtySelectionDialog } from '@/components/station/SpecialtySelectionDialog';
+import { CircuitStep, STEP_LABELS, Station, MedicalSpecialty } from '@/types/patient-flow';
 import { Activity, ChevronDown } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
+import { supabase } from '@/integrations/supabase/client';
+import { toast } from 'sonner';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -32,6 +35,8 @@ type StationSelection =
 
 const StationPage = () => {
   const [selection, setSelection] = useState<StationSelection>({ type: 'consultation', roomNumber: 1 });
+  const [showSpecialtyDialog, setShowSpecialtyDialog] = useState(false);
+  const [pendingRoomSelection, setPendingRoomSelection] = useState<number | null>(null);
   
   // Fetch all stations
   const { stations: allStations, isLoading } = useStations();
@@ -47,12 +52,72 @@ const StationPage = () => {
     }
   }, [allStations, selection]);
 
+  // Get the current station for specialty update
+  const currentStation = useMemo(() => {
+    if (selection.type === 'consultation') {
+      return allStations.find(
+        (s) => s.step === 'especialista' && s.station_number === selection.roomNumber
+      );
+    }
+    return null;
+  }, [allStations, selection]);
+
   // Get display label for current selection
   const getSelectionLabel = () => {
     if (selection.type === 'consultation') {
-      return `Consultório ${selection.roomNumber}`;
+      const station = allStations.find(
+        (s) => s.step === 'especialista' && s.station_number === selection.roomNumber
+      );
+      const specialtyInfo = station?.current_specialty ? ` (${station.current_specialty})` : '';
+      return `Consultório ${selection.roomNumber}${specialtyInfo}`;
     }
     return STEP_LABELS[selection.step];
+  };
+
+  const handleRoomSelect = (roomNumber: number) => {
+    const station = allStations.find(
+      (s) => s.step === 'especialista' && s.station_number === roomNumber
+    );
+    
+    // If station has no specialty set, show the dialog
+    if (station && !station.current_specialty) {
+      setPendingRoomSelection(roomNumber);
+      setShowSpecialtyDialog(true);
+    } else {
+      setSelection({ type: 'consultation', roomNumber });
+    }
+  };
+
+  const handleSpecialtySelect = async (specialty: MedicalSpecialty) => {
+    if (pendingRoomSelection === null) return;
+
+    const station = allStations.find(
+      (s) => s.step === 'especialista' && s.station_number === pendingRoomSelection
+    );
+
+    if (station) {
+      try {
+        const { error } = await supabase
+          .from('stations')
+          .update({ current_specialty: specialty })
+          .eq('id', station.id);
+
+        if (error) throw error;
+        
+        toast.success(`Especialidade definida para Consultório ${pendingRoomSelection}`);
+        setSelection({ type: 'consultation', roomNumber: pendingRoomSelection });
+      } catch (error: any) {
+        toast.error(error.message || 'Erro ao definir especialidade');
+      }
+    }
+
+    setShowSpecialtyDialog(false);
+    setPendingRoomSelection(null);
+  };
+
+  const handleCancelSpecialtyDialog = () => {
+    setShowSpecialtyDialog(false);
+    setPendingRoomSelection(null);
   };
 
   return (
@@ -95,19 +160,26 @@ const StationPage = () => {
               <DropdownMenuLabel className="text-muted-foreground">
                 Consultórios de Especialistas
               </DropdownMenuLabel>
-              {CONSULTATION_ROOMS.map((roomNum) => (
-                <DropdownMenuItem
-                  key={`room-${roomNum}`}
-                  onClick={() => setSelection({ type: 'consultation', roomNumber: roomNum })}
-                  className={`h-10 ${
-                    selection.type === 'consultation' && selection.roomNumber === roomNum
-                      ? 'bg-accent'
-                      : ''
-                  }`}
-                >
-                  👨‍⚕️ Consultório {roomNum}
-                </DropdownMenuItem>
-              ))}
+              {CONSULTATION_ROOMS.map((roomNum) => {
+                const station = allStations.find(
+                  (s) => s.step === 'especialista' && s.station_number === roomNum
+                );
+                const specialtyInfo = station?.current_specialty ? ` - ${station.current_specialty}` : '';
+                
+                return (
+                  <DropdownMenuItem
+                    key={`room-${roomNum}`}
+                    onClick={() => handleRoomSelect(roomNum)}
+                    className={`h-10 ${
+                      selection.type === 'consultation' && selection.roomNumber === roomNum
+                        ? 'bg-accent'
+                        : ''
+                    }`}
+                  >
+                    👨‍⚕️ Consultório {roomNum}{specialtyInfo}
+                  </DropdownMenuItem>
+                );
+              })}
               
               <DropdownMenuSeparator />
               
@@ -150,6 +222,14 @@ const StationPage = () => {
           </div>
         )}
       </div>
+
+      {/* Specialty Selection Dialog */}
+      <SpecialtySelectionDialog
+        open={showSpecialtyDialog}
+        roomNumber={pendingRoomSelection || 1}
+        onSelect={handleSpecialtySelect}
+        onCancel={handleCancelSpecialtyDialog}
+      />
     </div>
   );
 };
