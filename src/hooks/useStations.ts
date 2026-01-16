@@ -131,6 +131,13 @@ export function useStationActions(station: Station) {
         }
       }
 
+      // Specialists: prefer first consultations over returns
+      if (station.step === 'especialista') {
+        const firstConsult = candidates.filter((s: any) => s.patients.flow_type === 'consulta_especialista');
+        const returnConsult = candidates.filter((s: any) => s.patients.flow_type === 'consulta_retorno');
+        candidates = firstConsult.length > 0 ? firstConsult : returnConsult;
+      }
+
       // Weighted priority selection: 75% priority, 25% normal
       // After 3 priority patients, call 1 normal patient (if available)
       if (!selectedStep) {
