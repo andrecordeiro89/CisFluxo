@@ -158,6 +158,7 @@ function generateXMLReport(report: DayReport, selectedDate: Date): string {
       <matricula>${patient.registration_number || 'N/A'}</matricula>
       <especialidade>${SPECIALTY_LABELS[patient.specialty]}</especialidade>
       <dataMarcacao>${patient.scheduling_pending_at ? format(new Date(patient.scheduling_pending_at), 'dd/MM/yyyy HH:mm') : 'N/A'}</dataMarcacao>
+      <justificativa>${patient.scheduling_pending_reason || 'N/A'}</justificativa>
     </paciente>`;
   });
 
@@ -305,26 +306,34 @@ export function ReportsDialog() {
                   {report.pendingSchedulingPatients.map((patient) => (
                     <div 
                       key={patient.id} 
-                      className="p-3 rounded-lg border border-amber-300 bg-amber-50/50 flex items-center justify-between"
+                      className="p-3 rounded-lg border border-amber-300 bg-amber-50/50"
                     >
-                      <div>
-                        <p className="font-medium">{patient.name}</p>
-                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                          {patient.registration_number && (
-                            <span>#{patient.registration_number}</span>
+                      <div className="flex items-center justify-between mb-2">
+                        <div>
+                          <p className="font-medium">{patient.name}</p>
+                          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                            {patient.registration_number && (
+                              <span>#{patient.registration_number}</span>
+                            )}
+                            <Badge variant="outline" className="text-xs">
+                              {SPECIALTY_LABELS[patient.specialty]}
+                            </Badge>
+                          </div>
+                        </div>
+                        <div className="text-right text-sm text-muted-foreground">
+                          {patient.scheduling_pending_at && (
+                            <span>
+                              {format(new Date(patient.scheduling_pending_at), 'HH:mm')}
+                            </span>
                           )}
-                          <Badge variant="outline" className="text-xs">
-                            {SPECIALTY_LABELS[patient.specialty]}
-                          </Badge>
                         </div>
                       </div>
-                      <div className="text-right text-sm text-muted-foreground">
-                        {patient.scheduling_pending_at && (
-                          <span>
-                            {format(new Date(patient.scheduling_pending_at), 'HH:mm')}
-                          </span>
-                        )}
-                      </div>
+                      {patient.scheduling_pending_reason && (
+                        <div className="mt-2 p-2 bg-amber-100 rounded text-sm">
+                          <span className="font-medium text-amber-700">Justificativa: </span>
+                          <span className="text-amber-900">{patient.scheduling_pending_reason}</span>
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>

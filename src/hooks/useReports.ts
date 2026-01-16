@@ -24,6 +24,7 @@ export interface PendingSchedulingPatient {
   registration_number: string | null;
   specialty: MedicalSpecialty;
   scheduling_pending_at: string | null;
+  scheduling_pending_reason: string | null;
 }
 
 export interface DayReport {
@@ -118,6 +119,7 @@ export function useReports(startDate: Date, endDate: Date) {
           registration_number: p.registration_number,
           specialty: p.specialty as MedicalSpecialty,
           scheduling_pending_at: p.scheduling_pending_at,
+          scheduling_pending_reason: p.scheduling_pending_reason,
         }));
 
       return {

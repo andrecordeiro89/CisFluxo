@@ -152,12 +152,13 @@ export function usePatients() {
 
   // Mark patient as pending surgery scheduling
   const markPendingScheduling = useMutation({
-    mutationFn: async (patientId: string) => {
+    mutationFn: async ({ patientId, reason }: { patientId: string; reason: string }) => {
       const { error } = await supabase
         .from('patients')
         .update({ 
           pending_surgery_scheduling: true,
           scheduling_pending_at: new Date().toISOString(),
+          scheduling_pending_reason: reason,
         })
         .eq('id', patientId);
 
