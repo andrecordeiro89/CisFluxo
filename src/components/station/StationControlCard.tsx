@@ -180,9 +180,30 @@ export function StationControlCard({ station }: StationControlCardProps) {
 
   const handleSurgeryIndication = async (hasSurgeryIndication: boolean) => {
     if (hasSurgeryIndication) {
-      // Has surgery indication - show cardio requirement dialog
-      setShowSurgeryDialog(false);
-      setShowCardioDialog(true);
+      // Has surgery indication - check if ORTOPEDIA to show cardio dialog
+      const isOrtopedia = station.current_specialty === 'ORTOPEDIA';
+      
+      if (isOrtopedia) {
+        // For ORTOPEDIA, ask about cardio requirement
+        setShowSurgeryDialog(false);
+        setShowCardioDialog(true);
+      } else {
+        // For other specialties, go directly to preop circuit without cardio question
+        setShowSurgeryDialog(false);
+        setIsLoading('finish');
+        try {
+          await finishService.mutateAsync();
+          if (pendingFinishPatient) {
+            await addToPreopCircuit.mutateAsync({ patientId: pendingFinishPatient.id, needsCardio: false });
+            toast.success('Paciente incluído no circuito pré-operatório!');
+          }
+        } catch (error: any) {
+          toast.error(error.message || 'Erro ao finalizar atendimento');
+        } finally {
+          setIsLoading(null);
+          setPendingFinishPatient(null);
+        }
+      }
     } else {
       // No surgery indication - show discharge outcome dialog
       setShowSurgeryDialog(false);
