@@ -57,6 +57,7 @@ export interface Station {
   name: string;
   is_active: boolean;
   current_patient_id: string | null;
+  current_specialty: MedicalSpecialty | null;
   created_at: string;
 }
 

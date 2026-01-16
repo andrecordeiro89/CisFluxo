@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { Station, CircuitStep, Patient, PatientStep } from '@/types/patient-flow';
+import { Station, CircuitStep, Patient, PatientStep, MedicalSpecialty } from '@/types/patient-flow';
 import { useEffect, useRef } from 'react';
 
 // Track the last call type (priority or not) for weighted selection
@@ -19,7 +19,7 @@ export function useStations(step?: CircuitStep) {
         query = query.eq('step', step);
       }
 
-      const { data, error } = await query.order('station_number', { ascending: true });
+      const { data, error } = await query.order('step').order('station_number', { ascending: true });
       
       if (error) throw error;
       return data as Station[];
@@ -374,6 +374,20 @@ export function useStationActions(station: Station) {
     },
   });
 
+  const updateStationSpecialty = useMutation({
+    mutationFn: async (specialty: MedicalSpecialty) => {
+      const { error } = await supabase
+        .from('stations')
+        .update({ current_specialty: specialty })
+        .eq('id', station.id);
+
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['stations'] });
+    },
+  });
+
   return {
     callNextPatient,
     startService,
@@ -381,5 +395,6 @@ export function useStationActions(station: Station) {
     cancelCall,
     addImageExam,
     addCardioStep,
+    updateStationSpecialty,
   };
 }

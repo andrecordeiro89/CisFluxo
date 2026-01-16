@@ -1,7 +1,7 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useStations } from '@/hooks/useStations';
 import { StationControlCard } from '@/components/station/StationControlCard';
-import { CircuitStep, STEP_LABELS } from '@/types/patient-flow';
+import { CircuitStep, STEP_LABELS, Station } from '@/types/patient-flow';
 import { Activity, ChevronDown } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -10,10 +10,12 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
+  DropdownMenuSeparator,
+  DropdownMenuLabel,
 } from '@/components/ui/dropdown-menu';
 
-const AVAILABLE_STEPS: CircuitStep[] = [
-  'especialista',
+// Pre-operative circuit steps
+const PREOP_STEPS: CircuitStep[] = [
   'triagem_medica',
   'exames_lab_ecg',
   'agendamento',
@@ -21,9 +23,37 @@ const AVAILABLE_STEPS: CircuitStep[] = [
   'exame_imagem',
 ];
 
+// Consultation room identifiers (we'll show individual rooms)
+const CONSULTATION_ROOMS = Array.from({ length: 10 }, (_, i) => i + 1);
+
+type StationSelection = 
+  | { type: 'step'; step: CircuitStep }
+  | { type: 'consultation'; roomNumber: number };
+
 const StationPage = () => {
-  const [selectedStep, setSelectedStep] = useState<CircuitStep>('especialista');
-  const { stations, isLoading } = useStations(selectedStep);
+  const [selection, setSelection] = useState<StationSelection>({ type: 'consultation', roomNumber: 1 });
+  
+  // Fetch all stations
+  const { stations: allStations, isLoading } = useStations();
+
+  // Filter stations based on selection
+  const filteredStations = useMemo(() => {
+    if (selection.type === 'consultation') {
+      return allStations.filter(
+        (s) => s.step === 'especialista' && s.station_number === selection.roomNumber
+      );
+    } else {
+      return allStations.filter((s) => s.step === selection.step);
+    }
+  }, [allStations, selection]);
+
+  // Get display label for current selection
+  const getSelectionLabel = () => {
+    if (selection.type === 'consultation') {
+      return `Consultório ${selection.roomNumber}`;
+    }
+    return STEP_LABELS[selection.step];
+  };
 
   return (
     <div className="min-h-screen bg-background">
@@ -57,16 +87,42 @@ const StationPage = () => {
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="outline" className="w-full md:w-auto h-12 text-base justify-between min-w-[280px]">
-                {STEP_LABELS[selectedStep]}
+                {getSelectionLabel()}
                 <ChevronDown className="h-4 w-4 ml-2" />
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="start" className="w-[280px]">
-              {AVAILABLE_STEPS.map((step) => (
+            <DropdownMenuContent align="start" className="w-[280px] bg-popover">
+              <DropdownMenuLabel className="text-muted-foreground">
+                Consultórios de Especialistas
+              </DropdownMenuLabel>
+              {CONSULTATION_ROOMS.map((roomNum) => (
+                <DropdownMenuItem
+                  key={`room-${roomNum}`}
+                  onClick={() => setSelection({ type: 'consultation', roomNumber: roomNum })}
+                  className={`h-10 ${
+                    selection.type === 'consultation' && selection.roomNumber === roomNum
+                      ? 'bg-accent'
+                      : ''
+                  }`}
+                >
+                  👨‍⚕️ Consultório {roomNum}
+                </DropdownMenuItem>
+              ))}
+              
+              <DropdownMenuSeparator />
+              
+              <DropdownMenuLabel className="text-muted-foreground">
+                Circuito Pré-Operatório
+              </DropdownMenuLabel>
+              {PREOP_STEPS.map((step) => (
                 <DropdownMenuItem
                   key={step}
-                  onClick={() => setSelectedStep(step)}
-                  className="h-10"
+                  onClick={() => setSelection({ type: 'step', step })}
+                  className={`h-10 ${
+                    selection.type === 'step' && selection.step === step
+                      ? 'bg-accent'
+                      : ''
+                  }`}
                 >
                   {STEP_LABELS[step]}
                 </DropdownMenuItem>
@@ -82,13 +138,13 @@ const StationPage = () => {
               <div key={i} className="h-80 bg-muted rounded-xl animate-pulse" />
             ))}
           </div>
-        ) : stations.length === 0 ? (
+        ) : filteredStations.length === 0 ? (
           <div className="text-center py-12">
             <p className="text-muted-foreground">Nenhuma estação configurada para esta etapa</p>
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {stations.map((station) => (
+            {filteredStations.map((station) => (
               <StationControlCard key={station.id} station={station} />
             ))}
           </div>

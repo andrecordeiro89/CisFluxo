@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Station, Patient, CircuitStep, STEP_LABELS } from '@/types/patient-flow';
+import { Station, Patient, CircuitStep, STEP_LABELS, MedicalSpecialty } from '@/types/patient-flow';
 import { useStationActions } from '@/hooks/useStations';
 import { usePatients, usePatientSteps } from '@/hooks/usePatients';
 import { Button } from '@/components/ui/button';
@@ -8,6 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { Phone, Play, CheckCircle, ImageIcon, User, Clock, Loader2, AlertTriangle, Heart, XCircle } from 'lucide-react';
 import { toast } from 'sonner';
 import { SurgeryIndicationDialog } from './SurgeryIndicationDialog';
+import { SpecialtySelector } from './SpecialtySelector';
 
 interface StationControlCardProps {
   station: Station;
@@ -16,7 +17,7 @@ interface StationControlCardProps {
 const AUTO_CANCEL_TIMEOUT_MS = 3 * 60 * 1000; // 3 minutes
 
 export function StationControlCard({ station }: StationControlCardProps) {
-  const { callNextPatient, startService, finishService, cancelCall, addImageExam, addCardioStep } = useStationActions(station);
+  const { callNextPatient, startService, finishService, cancelCall, addImageExam, addCardioStep, updateStationSpecialty } = useStationActions(station);
   const { patients, addToPreopCircuit } = usePatients();
   const { steps } = usePatientSteps();
   const [isLoading, setIsLoading] = useState<string | null>(null);
@@ -94,6 +95,15 @@ export function StationControlCard({ station }: StationControlCardProps) {
     const patient = patients.find((p) => p.id === s.patient_id);
     return patient && !patient.is_being_served;
   }).length;
+
+  const handleSpecialtyChange = async (specialty: MedicalSpecialty) => {
+    try {
+      await updateStationSpecialty.mutateAsync(specialty);
+      toast.success('Especialidade atualizada!');
+    } catch (error: any) {
+      toast.error(error.message || 'Erro ao atualizar especialidade');
+    }
+  };
 
   const handleCall = async () => {
     setIsLoading('call');
@@ -237,6 +247,15 @@ export function StationControlCard({ station }: StationControlCardProps) {
 
         {/* Content */}
         <div className="p-5">
+          {/* Specialty selector for specialist stations */}
+          {station.step === 'especialista' && (
+            <SpecialtySelector
+              currentSpecialty={station.current_specialty}
+              onSpecialtyChange={handleSpecialtyChange}
+              disabled={!!currentPatient}
+            />
+          )}
+
           {/* Current patient info */}
           {currentPatient ? (
             <div className={`mb-5 p-4 rounded-lg border ${currentPatient.is_priority ? 'bg-amber-500/10 border-amber-500/50' : 'bg-accent/50'}`}>
