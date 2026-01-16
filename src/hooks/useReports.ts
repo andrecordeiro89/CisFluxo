@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { CircuitStep } from '@/types/patient-flow';
+import { CircuitStep, MedicalSpecialty } from '@/types/patient-flow';
 import { differenceInMinutes } from 'date-fns';
 
 export interface StepReport {
@@ -11,10 +11,20 @@ export interface StepReport {
   maxTimeMinutes: number;
 }
 
+export interface SpecialtyReport {
+  specialty: MedicalSpecialty;
+  totalConsultations: number;
+  surgicalIndications: number;
+  conversionRate: number;
+}
+
 export interface DayReport {
   totalPatients: number;
   completedPatients: number;
   stepReports: StepReport[];
+  specialtyReports: SpecialtyReport[];
+  totalSurgicalIndications: number;
+  overallConversionRate: number;
 }
 
 export function useReports(startDate: Date, endDate: Date) {
@@ -65,10 +75,38 @@ export function useReports(startDate: Date, endDate: Date) {
         };
       });
 
+      // Calculate specialty reports
+      const allSpecialties: MedicalSpecialty[] = [
+        'ORTOPEDIA', 'OTORRINO', 'OFTALMO', 'TRAUMA', 'GERAL', 'UROLOGIA', 'GINECOLOGIA', 'OUTROS'
+      ];
+
+      const specialtyReports: SpecialtyReport[] = allSpecialties.map((specialty) => {
+        const specialtyPatients = patients?.filter((p) => p.specialty === specialty) || [];
+        const totalConsultations = specialtyPatients.length;
+        const surgicalIndications = specialtyPatients.filter((p) => p.has_surgery_indication === true).length;
+        const conversionRate = totalConsultations > 0 ? Math.round((surgicalIndications / totalConsultations) * 100) : 0;
+
+        return {
+          specialty,
+          totalConsultations,
+          surgicalIndications,
+          conversionRate,
+        };
+      }).filter(r => r.totalConsultations > 0); // Only show specialties with consultations
+
+      const totalSurgicalIndications = patients?.filter((p) => p.has_surgery_indication === true).length || 0;
+      const totalConsultations = patients?.length || 0;
+      const overallConversionRate = totalConsultations > 0 
+        ? Math.round((totalSurgicalIndications / totalConsultations) * 100) 
+        : 0;
+
       return {
         totalPatients: patients?.length || 0,
         completedPatients: patients?.filter((p) => p.is_completed).length || 0,
         stepReports,
+        specialtyReports,
+        totalSurgicalIndications,
+        overallConversionRate,
       };
     },
   });

@@ -1,12 +1,14 @@
+import { useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { BarChart3, Clock, Users, CheckCircle, AlertTriangle } from 'lucide-react';
+import { BarChart3, Clock, Users, CheckCircle, AlertTriangle, Stethoscope, TrendingUp, Download, FileCode } from 'lucide-react';
 import { useSelectedDate } from '@/contexts/DateContext';
-import { useReports, StepReport } from '@/hooks/useReports';
-import { STEP_LABELS, CircuitStep } from '@/types/patient-flow';
+import { useReports, StepReport, SpecialtyReport, DayReport } from '@/hooks/useReports';
+import { STEP_LABELS, SPECIALTY_LABELS, CircuitStep, MedicalSpecialty } from '@/types/patient-flow';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { Progress } from '@/components/ui/progress';
+import { toast } from 'sonner';
 
 const stepIcons: Record<CircuitStep, string> = {
   triagem_medica: '🩺',
@@ -65,9 +67,117 @@ function StepReportCard({ report }: { report: StepReport }) {
   );
 }
 
+function SpecialtyReportCard({ report }: { report: SpecialtyReport }) {
+  return (
+    <div className="p-4 rounded-lg border bg-card">
+      <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center gap-2">
+          <Stethoscope className="h-5 w-5 text-primary" />
+          <span className="font-medium">{SPECIALTY_LABELS[report.specialty]}</span>
+        </div>
+        <div className="flex items-center gap-1 text-primary text-sm font-semibold">
+          <TrendingUp className="h-4 w-4" />
+          <span>{report.conversionRate}%</span>
+        </div>
+      </div>
+      
+      <div className="grid grid-cols-3 gap-3 text-sm">
+        <div>
+          <p className="text-muted-foreground">Consultas</p>
+          <p className="font-semibold text-lg">{report.totalConsultations}</p>
+        </div>
+        <div>
+          <p className="text-muted-foreground">Indicações Cirúrgicas</p>
+          <p className="font-semibold text-lg text-status-completed">{report.surgicalIndications}</p>
+        </div>
+        <div>
+          <p className="text-muted-foreground">Taxa de Conversão</p>
+          <p className="font-semibold text-lg">{report.conversionRate}%</p>
+        </div>
+      </div>
+
+      {report.totalConsultations > 0 && (
+        <div className="mt-3">
+          <Progress value={report.conversionRate} className="h-2" />
+        </div>
+      )}
+    </div>
+  );
+}
+
+function generateXMLReport(report: DayReport, selectedDate: Date): string {
+  const dateStr = format(selectedDate, 'yyyy-MM-dd');
+  const dateDisplay = format(selectedDate, "dd 'de' MMMM, yyyy", { locale: ptBR });
+  
+  let xml = `<?xml version="1.0" encoding="UTF-8"?>
+<relatorio data="${dateStr}" dataFormatada="${dateDisplay}">
+  <resumo>
+    <totalPacientes>${report.totalPatients}</totalPacientes>
+    <circuitosCompletos>${report.completedPatients}</circuitosCompletos>
+    <totalIndicacoesCirurgicas>${report.totalSurgicalIndications}</totalIndicacoesCirurgicas>
+    <taxaConversaoGeral>${report.overallConversionRate}%</taxaConversaoGeral>
+  </resumo>
+  
+  <temposPorEstacao>`;
+
+  report.stepReports.forEach(step => {
+    xml += `
+    <estacao nome="${STEP_LABELS[step.step]}">
+      <atendimentos>${step.total}</atendimentos>
+      <tempoMedioMinutos>${step.avgTimeMinutes}</tempoMedioMinutos>
+      <tempoMinimoMinutos>${step.minTimeMinutes}</tempoMinimoMinutos>
+      <tempoMaximoMinutos>${step.maxTimeMinutes}</tempoMaximoMinutos>
+    </estacao>`;
+  });
+
+  xml += `
+  </temposPorEstacao>
+  
+  <consultasPorEspecialidade>`;
+
+  report.specialtyReports.forEach(specialty => {
+    xml += `
+    <especialidade nome="${SPECIALTY_LABELS[specialty.specialty]}">
+      <totalConsultas>${specialty.totalConsultations}</totalConsultas>
+      <indicacoesCirurgicas>${specialty.surgicalIndications}</indicacoesCirurgicas>
+      <taxaConversao>${specialty.conversionRate}%</taxaConversao>
+    </especialidade>`;
+  });
+
+  xml += `
+  </consultasPorEspecialidade>
+</relatorio>`;
+
+  return xml;
+}
+
+function downloadXML(content: string, filename: string) {
+  const blob = new Blob([content], { type: 'application/xml' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
 export function ReportsDialog() {
   const { selectedDate, startOfSelectedDay, endOfSelectedDay } = useSelectedDate();
   const { data: report, isLoading } = useReports(startOfSelectedDay, endOfSelectedDay);
+
+  const handleExportXML = () => {
+    if (!report) {
+      toast.error('Nenhum dado disponível para exportar');
+      return;
+    }
+
+    const xml = generateXMLReport(report, selectedDate);
+    const filename = `relatorio_${format(selectedDate, 'yyyy-MM-dd')}.xml`;
+    downloadXML(xml, filename);
+    toast.success('Relatório exportado com sucesso!');
+  };
 
   return (
     <Dialog>
@@ -79,10 +189,21 @@ export function ReportsDialog() {
       </DialogTrigger>
       <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <BarChart3 className="h-5 w-5" />
-            Relatório do Dia - {format(selectedDate, "dd 'de' MMMM, yyyy", { locale: ptBR })}
-          </DialogTitle>
+          <div className="flex items-center justify-between">
+            <DialogTitle className="flex items-center gap-2">
+              <BarChart3 className="h-5 w-5" />
+              Relatório do Dia - {format(selectedDate, "dd 'de' MMMM, yyyy", { locale: ptBR })}
+            </DialogTitle>
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={handleExportXML}
+              disabled={!report || isLoading}
+            >
+              <FileCode className="h-4 w-4 mr-2" />
+              Exportar XML
+            </Button>
+          </div>
         </DialogHeader>
 
         {isLoading ? (
@@ -94,11 +215,11 @@ export function ReportsDialog() {
         ) : report ? (
           <div className="space-y-6">
             {/* Summary */}
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               <div className="p-4 rounded-lg bg-primary/10 border border-primary/20">
                 <div className="flex items-center gap-2 mb-1">
                   <Users className="h-5 w-5 text-primary" />
-                  <span className="text-muted-foreground">Total de Pacientes</span>
+                  <span className="text-muted-foreground text-sm">Total de Pacientes</span>
                 </div>
                 <p className="text-3xl font-bold text-primary">{report.totalPatients}</p>
               </div>
@@ -106,11 +227,42 @@ export function ReportsDialog() {
               <div className="p-4 rounded-lg bg-status-completed-bg border border-status-completed/20">
                 <div className="flex items-center gap-2 mb-1">
                   <CheckCircle className="h-5 w-5 text-status-completed" />
-                  <span className="text-muted-foreground">Circuitos Completos</span>
+                  <span className="text-muted-foreground text-sm">Circuitos Completos</span>
                 </div>
                 <p className="text-3xl font-bold text-status-completed">{report.completedPatients}</p>
               </div>
+
+              <div className="p-4 rounded-lg bg-amber-500/10 border border-amber-500/20">
+                <div className="flex items-center gap-2 mb-1">
+                  <Stethoscope className="h-5 w-5 text-amber-600" />
+                  <span className="text-muted-foreground text-sm">Indicações Cirúrgicas</span>
+                </div>
+                <p className="text-3xl font-bold text-amber-600">{report.totalSurgicalIndications}</p>
+              </div>
+
+              <div className="p-4 rounded-lg bg-blue-500/10 border border-blue-500/20">
+                <div className="flex items-center gap-2 mb-1">
+                  <TrendingUp className="h-5 w-5 text-blue-600" />
+                  <span className="text-muted-foreground text-sm">Taxa de Conversão</span>
+                </div>
+                <p className="text-3xl font-bold text-blue-600">{report.overallConversionRate}%</p>
+              </div>
             </div>
+
+            {/* Specialty reports */}
+            {report.specialtyReports.length > 0 && (
+              <div>
+                <h3 className="font-semibold mb-4 flex items-center gap-2">
+                  <Stethoscope className="h-4 w-4" />
+                  Consultas por Especialidade
+                </h3>
+                <div className="space-y-3">
+                  {report.specialtyReports.map((specialtyReport) => (
+                    <SpecialtyReportCard key={specialtyReport.specialty} report={specialtyReport} />
+                  ))}
+                </div>
+              </div>
+            )}
 
             {/* Step reports */}
             <div>

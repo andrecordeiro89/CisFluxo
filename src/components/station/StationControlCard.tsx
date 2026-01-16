@@ -94,10 +94,18 @@ export function StationControlCard({ station }: StationControlCardProps) {
   };
 
   // Count pending patients excluding those being served
+  // For specialist stations with specialty set, filter by specialty
   const pendingCount = steps.filter((s) => {
     if (s.step !== station.step || s.status !== 'pending') return false;
     const patient = patients.find((p) => p.id === s.patient_id);
-    return patient && !patient.is_being_served;
+    if (!patient || patient.is_being_served) return false;
+    
+    // For specialist stations, filter by specialty if set
+    if (station.step === 'especialista' && station.current_specialty) {
+      return patient.specialty === station.current_specialty;
+    }
+    
+    return true;
   }).length;
 
   const handleSpecialtyChange = async (specialty: MedicalSpecialty) => {
@@ -316,6 +324,16 @@ export function StationControlCard({ station }: StationControlCardProps) {
               )}
             </div>
           )}
+
+          {/* Queue count */}
+          <div className="mb-4 p-3 rounded-lg bg-muted/50 border">
+            <div className="flex items-center justify-between">
+              <span className="text-sm text-muted-foreground">Pacientes na fila:</span>
+              <Badge variant="secondary" className="text-lg px-3 py-1">
+                {pendingCount}
+              </Badge>
+            </div>
+          </div>
 
           {/* Current patient info */}
           {currentPatient ? (
