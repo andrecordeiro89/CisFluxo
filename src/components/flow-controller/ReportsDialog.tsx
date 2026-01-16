@@ -1,14 +1,15 @@
 import { useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { BarChart3, Clock, Users, CheckCircle, AlertTriangle, Stethoscope, TrendingUp, Download, FileCode } from 'lucide-react';
+import { BarChart3, Clock, Users, CheckCircle, AlertTriangle, Stethoscope, TrendingUp, Download, FileCode, CalendarX } from 'lucide-react';
 import { useSelectedDate } from '@/contexts/DateContext';
-import { useReports, StepReport, SpecialtyReport, DayReport } from '@/hooks/useReports';
+import { useReports, StepReport, SpecialtyReport, DayReport, PendingSchedulingPatient } from '@/hooks/useReports';
 import { STEP_LABELS, SPECIALTY_LABELS, CircuitStep, MedicalSpecialty } from '@/types/patient-flow';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { Progress } from '@/components/ui/progress';
 import { toast } from 'sonner';
+import { Badge } from '@/components/ui/badge';
 
 const stepIcons: Record<CircuitStep, string> = {
   triagem_medica: '🩺',
@@ -116,6 +117,7 @@ function generateXMLReport(report: DayReport, selectedDate: Date): string {
     <circuitosCompletos>${report.completedPatients}</circuitosCompletos>
     <totalIndicacoesCirurgicas>${report.totalSurgicalIndications}</totalIndicacoesCirurgicas>
     <taxaConversaoGeral>${report.overallConversionRate}%</taxaConversaoGeral>
+    <pacientesPendentesAgendamento>${report.pendingSchedulingPatients.length}</pacientesPendentesAgendamento>
   </resumo>
   
   <temposPorEstacao>`;
@@ -146,6 +148,21 @@ function generateXMLReport(report: DayReport, selectedDate: Date): string {
 
   xml += `
   </consultasPorEspecialidade>
+  
+  <pacientesPendentesAgendamento>`;
+
+  report.pendingSchedulingPatients.forEach(patient => {
+    xml += `
+    <paciente>
+      <nome>${patient.name}</nome>
+      <matricula>${patient.registration_number || 'N/A'}</matricula>
+      <especialidade>${SPECIALTY_LABELS[patient.specialty]}</especialidade>
+      <dataMarcacao>${patient.scheduling_pending_at ? format(new Date(patient.scheduling_pending_at), 'dd/MM/yyyy HH:mm') : 'N/A'}</dataMarcacao>
+    </paciente>`;
+  });
+
+  xml += `
+  </pacientesPendentesAgendamento>
 </relatorio>`;
 
   return xml;
@@ -276,6 +293,43 @@ export function ReportsDialog() {
                 ))}
               </div>
             </div>
+
+            {/* Pending Scheduling Patients */}
+            {report.pendingSchedulingPatients.length > 0 && (
+              <div>
+                <h3 className="font-semibold mb-4 flex items-center gap-2 text-amber-600">
+                  <CalendarX className="h-4 w-4" />
+                  Pacientes Pendentes de Agendamento Cirúrgico ({report.pendingSchedulingPatients.length})
+                </h3>
+                <div className="space-y-2">
+                  {report.pendingSchedulingPatients.map((patient) => (
+                    <div 
+                      key={patient.id} 
+                      className="p-3 rounded-lg border border-amber-300 bg-amber-50/50 flex items-center justify-between"
+                    >
+                      <div>
+                        <p className="font-medium">{patient.name}</p>
+                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                          {patient.registration_number && (
+                            <span>#{patient.registration_number}</span>
+                          )}
+                          <Badge variant="outline" className="text-xs">
+                            {SPECIALTY_LABELS[patient.specialty]}
+                          </Badge>
+                        </div>
+                      </div>
+                      <div className="text-right text-sm text-muted-foreground">
+                        {patient.scheduling_pending_at && (
+                          <span>
+                            {format(new Date(patient.scheduling_pending_at), 'HH:mm')}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         ) : (
           <p className="text-muted-foreground text-center py-8">Nenhum dado disponível</p>

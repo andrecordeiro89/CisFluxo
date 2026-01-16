@@ -18,6 +18,14 @@ export interface SpecialtyReport {
   conversionRate: number;
 }
 
+export interface PendingSchedulingPatient {
+  id: string;
+  name: string;
+  registration_number: string | null;
+  specialty: MedicalSpecialty;
+  scheduling_pending_at: string | null;
+}
+
 export interface DayReport {
   totalPatients: number;
   completedPatients: number;
@@ -25,6 +33,7 @@ export interface DayReport {
   specialtyReports: SpecialtyReport[];
   totalSurgicalIndications: number;
   overallConversionRate: number;
+  pendingSchedulingPatients: PendingSchedulingPatient[];
 }
 
 export function useReports(startDate: Date, endDate: Date) {
@@ -100,6 +109,17 @@ export function useReports(startDate: Date, endDate: Date) {
         ? Math.round((totalSurgicalIndications / totalConsultations) * 100) 
         : 0;
 
+      // Get patients pending surgery scheduling
+      const pendingSchedulingPatients: PendingSchedulingPatient[] = (patients || [])
+        .filter((p) => p.pending_surgery_scheduling === true)
+        .map((p) => ({
+          id: p.id,
+          name: p.name,
+          registration_number: p.registration_number,
+          specialty: p.specialty as MedicalSpecialty,
+          scheduling_pending_at: p.scheduling_pending_at,
+        }));
+
       return {
         totalPatients: patients?.length || 0,
         completedPatients: patients?.filter((p) => p.is_completed).length || 0,
@@ -107,6 +127,7 @@ export function useReports(startDate: Date, endDate: Date) {
         specialtyReports,
         totalSurgicalIndications,
         overallConversionRate,
+        pendingSchedulingPatients,
       };
     },
   });

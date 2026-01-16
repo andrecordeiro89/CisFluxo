@@ -150,11 +150,30 @@ export function usePatients() {
     },
   });
 
+  // Mark patient as pending surgery scheduling
+  const markPendingScheduling = useMutation({
+    mutationFn: async (patientId: string) => {
+      const { error } = await supabase
+        .from('patients')
+        .update({ 
+          pending_surgery_scheduling: true,
+          scheduling_pending_at: new Date().toISOString(),
+        })
+        .eq('id', patientId);
+
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['patients'] });
+    },
+  });
+
   return {
     patients,
     isLoading,
     registerPatient,
     addToPreopCircuit,
+    markPendingScheduling,
     isToday,
   };
 }
