@@ -83,6 +83,8 @@ export function usePatients() {
           steps.push({ patient_id: patient.id, step: 'exames_lab_ecg' });
         }
         steps.push({ patient_id: patient.id, step: 'especialista' });
+      } else if (data.flow_type === 'consulta_retorno') {
+        steps.push({ patient_id: patient.id, step: 'especialista' });
       } else {
         // Patient goes directly to pre-operative circuit
         steps.push({ patient_id: patient.id, step: 'triagem_medica' });

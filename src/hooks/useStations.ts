@@ -113,6 +113,13 @@ export function useStationActions(station: Station) {
         }
       }
 
+      if (station.step === 'especialista') {
+        const firstConsultation = candidates.filter((s: any) => s.patients.flow_type === 'consulta_especialista');
+        if (firstConsultation.length > 0) {
+          candidates = firstConsultation;
+        }
+      }
+
       // Separate priority and non-priority patients
       const priorityPatients = candidates.filter((s: any) => s.patients.is_priority);
       const normalPatients = candidates.filter((s: any) => !s.patients.is_priority);
