@@ -41,7 +41,11 @@ const patientSchema = z.object({
 
 type PatientFormData = z.infer<typeof patientSchema>;
 
-export function PatientRegistrationForm() {
+interface PatientRegistrationFormProps {
+  onSuccess?: () => void;
+}
+
+export function PatientRegistrationForm({ onSuccess }: PatientRegistrationFormProps) {
   const { registerPatient } = usePatients();
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -74,6 +78,7 @@ export function PatientRegistrationForm() {
       });
       toast.success(`Paciente ${data.name} cadastrado com sucesso!`);
       form.reset();
+      onSuccess?.();
     } catch (error) {
       toast.error('Erro ao cadastrar paciente');
     } finally {

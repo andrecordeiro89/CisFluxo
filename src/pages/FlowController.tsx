@@ -1,10 +1,10 @@
 import { useState } from 'react';
-import { PatientRegistrationForm } from '@/components/flow-controller/PatientRegistrationForm';
 import { QueueOverview } from '@/components/flow-controller/QueueOverview';
 import { PatientList } from '@/components/flow-controller/PatientList';
 import { DatePicker } from '@/components/flow-controller/DatePicker';
 import { ReportsDialog } from '@/components/flow-controller/ReportsDialog';
 import { PatientStepsManager } from '@/components/flow-controller/PatientStepsManager';
+import { PatientRegistrationDialog } from '@/components/flow-controller/PatientRegistrationDialog';
 import { QueueFilter, QueueFilterOption } from '@/components/flow-controller/QueueFilter';
 import { Activity } from 'lucide-react';
 import { Link } from 'react-router-dom';
@@ -46,6 +46,7 @@ const FlowController = () => {
             <QueueFilter selectedFilter={queueFilter} onFilterChange={setQueueFilter} />
           </div>
           <div className="flex items-center gap-2">
+            <PatientRegistrationDialog disabled={!isToday} />
             <PatientStepsManager />
             <ReportsDialog />
           </div>
@@ -62,19 +63,8 @@ const FlowController = () => {
           </div>
         )}
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Left column - Registration (only for today) */}
-          <div className="lg:col-span-1">
-            {isToday ? (
-              <PatientRegistrationForm />
-            ) : (
-              <div className="card-elevated p-6 text-center text-muted-foreground">
-                <p>Cadastro disponível apenas para o dia atual</p>
-              </div>
-            )}
-          </div>
-
-          {/* Middle column - Queue Overview */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* Left column - Queue Overview */}
           <div className="lg:col-span-1">
             <QueueOverview filter={queueFilter} />
           </div>
