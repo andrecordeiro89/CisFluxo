@@ -295,7 +295,7 @@ export function ReportsDialog() {
             </div>
 
             {/* Pending Scheduling Patients */}
-            {report.pendingSchedulingPatients.length > 0 && (
+            {report.pendingSchedulingPatients && report.pendingSchedulingPatients.length > 0 && (
               <div>
                 <h3 className="font-semibold mb-4 flex items-center gap-2 text-amber-600">
                   <CalendarX className="h-4 w-4" />
