@@ -10,6 +10,7 @@ import { toast } from 'sonner';
 import { SurgeryIndicationDialog } from './SurgeryIndicationDialog';
 import { DischargeOutcomeDialog } from './DischargeOutcomeDialog';
 import { CardioRequirementDialog } from './CardioRequirementDialog';
+import { SchedulingConfirmDialog } from './SchedulingConfirmDialog';
 import { SpecialtySelector } from './SpecialtySelector';
 
 interface StationControlCardProps {
@@ -20,7 +21,7 @@ const AUTO_CANCEL_TIMEOUT_MS = 3 * 60 * 1000; // 3 minutes
 
 export function StationControlCard({ station }: StationControlCardProps) {
   const { callNextPatient, startService, finishService, cancelCall, addImageExam, addCardioStep, updateStationSpecialty, releaseRoom } = useStationActions(station);
-  const { patients, addToPreopCircuit } = usePatients();
+  const { patients, addToPreopCircuit, markPendingScheduling } = usePatients();
   const { steps } = usePatientSteps();
   const [isLoading, setIsLoading] = useState<string | null>(null);
   const [timeRemaining, setTimeRemaining] = useState<number | null>(null);
@@ -31,6 +32,7 @@ export function StationControlCard({ station }: StationControlCardProps) {
   const [showSurgeryDialog, setShowSurgeryDialog] = useState(false);
   const [showDischargeDialog, setShowDischargeDialog] = useState(false);
   const [showCardioDialog, setShowCardioDialog] = useState(false);
+  const [showSchedulingDialog, setShowSchedulingDialog] = useState(false);
   const [pendingFinishPatient, setPendingFinishPatient] = useState<Patient | null>(null);
 
   const currentPatient = patients.find((p) => p.id === station.current_patient_id);
@@ -153,6 +155,13 @@ export function StationControlCard({ station }: StationControlCardProps) {
       return;
     }
 
+    // For scheduling station, show scheduling confirmation dialog
+    if (station.step === 'agendamento' && currentPatient) {
+      setPendingFinishPatient(currentPatient);
+      setShowSchedulingDialog(true);
+      return;
+    }
+
     // For other stations, finish directly
     await performFinish();
   };
@@ -215,6 +224,26 @@ export function StationControlCard({ station }: StationControlCardProps) {
     } finally {
       setIsLoading(null);
       setShowDischargeDialog(false);
+      setPendingFinishPatient(null);
+    }
+  };
+
+  const handleSchedulingConfirm = async (hasScheduledDate: boolean) => {
+    setIsLoading('finish');
+    try {
+      // If patient doesn't have scheduled date, mark as pending
+      if (!hasScheduledDate && pendingFinishPatient) {
+        await markPendingScheduling.mutateAsync(pendingFinishPatient.id);
+        toast.info('Paciente adicionado à lista de pendentes de agendamento');
+      }
+      
+      await finishService.mutateAsync();
+      toast.success('Atendimento finalizado!');
+    } catch (error: any) {
+      toast.error(error.message || 'Erro ao finalizar atendimento');
+    } finally {
+      setIsLoading(null);
+      setShowSchedulingDialog(false);
       setPendingFinishPatient(null);
     }
   };
@@ -514,6 +543,13 @@ export function StationControlCard({ station }: StationControlCardProps) {
         patientName={pendingFinishPatient?.name || ''}
         onConfirm={handleCardioRequirement}
         isLoading={isLoading === 'finish'}
+      />
+
+      {/* Scheduling Confirm Dialog */}
+      <SchedulingConfirmDialog
+        open={showSchedulingDialog}
+        patientName={pendingFinishPatient?.name || ''}
+        onConfirm={handleSchedulingConfirm}
       />
     </>
   );

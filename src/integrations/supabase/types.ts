@@ -71,7 +71,9 @@ export type Database = {
           name: string
           needs_cardio: boolean
           needs_image_exam: boolean
+          pending_surgery_scheduling: boolean | null
           registration_number: string | null
+          scheduling_pending_at: string | null
           specialty: Database["public"]["Enums"]["medical_specialty"]
         }
         Insert: {
@@ -86,7 +88,9 @@ export type Database = {
           name: string
           needs_cardio?: boolean
           needs_image_exam?: boolean
+          pending_surgery_scheduling?: boolean | null
           registration_number?: string | null
+          scheduling_pending_at?: string | null
           specialty?: Database["public"]["Enums"]["medical_specialty"]
         }
         Update: {
@@ -101,7 +105,9 @@ export type Database = {
           name?: string
           needs_cardio?: boolean
           needs_image_exam?: boolean
+          pending_surgery_scheduling?: boolean | null
           registration_number?: string | null
+          scheduling_pending_at?: string | null
           specialty?: Database["public"]["Enums"]["medical_specialty"]
         }
         Relationships: []
