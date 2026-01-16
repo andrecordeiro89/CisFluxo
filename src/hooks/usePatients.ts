@@ -112,11 +112,16 @@ export function usePatients() {
 
   // Add patient to pre-operative circuit (called when specialist finishes with surgery indication)
   const addToPreopCircuit = useMutation({
-    mutationFn: async (patientId: string) => {
-      // Mark patient as having surgery indication
+    mutationFn: async ({ patientId, needsCardio }: { patientId: string; needsCardio: boolean }) => {
+      // Mark patient as having surgery indication and reset completed status
       const { error: updateError } = await supabase
         .from('patients')
-        .update({ has_surgery_indication: true })
+        .update({ 
+          has_surgery_indication: true,
+          is_completed: false,
+          completed_at: null,
+          needs_cardio: needsCardio,
+        })
         .eq('id', patientId);
 
       if (updateError) throw updateError;
@@ -127,6 +132,11 @@ export function usePatients() {
         { patient_id: patientId, step: 'exames_lab_ecg' },
         { patient_id: patientId, step: 'agendamento' },
       ];
+
+      // Add cardio step if needed
+      if (needsCardio) {
+        steps.push({ patient_id: patientId, step: 'cardiologista' });
+      }
 
       const { error: stepsError } = await supabase
         .from('patient_steps')

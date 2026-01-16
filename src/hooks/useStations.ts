@@ -400,6 +400,25 @@ export function useStationActions(station: Station) {
     },
   });
 
+  // Clear specialty and release consultation room
+  const releaseRoom = useMutation({
+    mutationFn: async () => {
+      if (station.current_patient_id) {
+        throw new Error('Finalize o atendimento antes de liberar o consultório');
+      }
+
+      const { error } = await supabase
+        .from('stations')
+        .update({ current_specialty: null })
+        .eq('id', station.id);
+
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['stations'] });
+    },
+  });
+
   return {
     callNextPatient,
     startService,
@@ -408,5 +427,6 @@ export function useStationActions(station: Station) {
     addImageExam,
     addCardioStep,
     updateStationSpecialty,
+    releaseRoom,
   };
 }
